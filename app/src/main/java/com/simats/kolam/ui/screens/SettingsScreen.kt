@@ -46,11 +46,11 @@ fun SettingsScreen(
                         )
                     )
                 },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ChevronLeft, contentDescription = "Back")
-                    }
-                },
+//                navigationIcon = {
+//                    IconButton(onClick = onBackClick) {
+//                        Icon(Icons.Default.ChevronLeft, contentDescription = "Back")
+//                    }
+//                },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
             )
         },
@@ -256,7 +256,7 @@ fun SettingsBottomNavigation(
         NavigationBarItem(
             selected = false,
             onClick = onDesignsClick,
-            icon = { Icon(Icons.Default.AutoAwesome, contentDescription = "Designs") },
+            icon = { Icon(Icons.Default.Folder, contentDescription = "Designs") },
             label = { Text("Designs") }
         )
         NavigationBarItem(

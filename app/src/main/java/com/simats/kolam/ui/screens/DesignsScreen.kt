@@ -49,11 +49,11 @@ fun DesignsScreen(
                         )
                     )
                 },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ChevronLeft, contentDescription = "Back")
-                    }
-                },
+//                navigationIcon = {
+//                    IconButton(onClick = onBackClick) {
+//                        Icon(Icons.Default.ChevronLeft, contentDescription = "Back")
+//                    }
+//                },
                 actions = {
                     IconButton(onClick = { }) {
                         Icon(Icons.Default.Search, contentDescription = "Search")

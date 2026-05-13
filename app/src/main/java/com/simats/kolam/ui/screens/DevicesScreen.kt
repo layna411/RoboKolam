@@ -47,11 +47,11 @@ fun DevicesScreen(
                         )
                     )
                 },
-                navigationIcon = {
-                    IconButton(onClick = { }) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menu")
-                    }
-                },
+//                navigationIcon = {
+//                    IconButton(onClick = { }) {
+//                        Icon(Icons.Default.Menu, contentDescription = "Menu")
+//                    }
+//                },
                 actions = {
                     IconButton(onClick = { }) {
                         Icon(Icons.Outlined.HelpOutline, contentDescription = "Help")
@@ -366,7 +366,7 @@ fun DevicesBottomNavigation(onHomeClick: () -> Unit, onDesignsClick: () -> Unit,
         NavigationBarItem(
             selected = false,
             onClick = onDesignsClick,
-            icon = { Icon(Icons.Default.AutoAwesome, contentDescription = "Designs") },
+            icon = { Icon(Icons.Default.Folder, contentDescription = "Designs") },
             label = { Text("Designs") }
         )
         NavigationBarItem(

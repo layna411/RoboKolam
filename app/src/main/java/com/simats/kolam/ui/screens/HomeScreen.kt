@@ -100,11 +100,11 @@ fun HomeTopBar() {
                 )
             )
         },
-        navigationIcon = {
-            IconButton(onClick = { }) {
-                Icon(Icons.Default.Menu, contentDescription = "Menu")
-            }
-        },
+//        navigationIcon = {
+//            IconButton(onClick = { }) {
+//                Icon(Icons.Default.Menu, contentDescription = "Menu")
+//            }
+//        },
         actions = {
             IconButton(onClick = { }) {
                 Icon(Icons.Default.NotificationsNone, contentDescription = "Notifications")
@@ -366,7 +366,7 @@ fun HomeBottomNavigation(onDesignsClick: () -> Unit, onDevicesClick: () -> Unit,
         NavigationBarItem(
             selected = false,
             onClick = onDesignsClick,
-            icon = { Icon(Icons.Default.AutoAwesome, contentDescription = "Designs") },
+            icon = { Icon(Icons.Default.Folder, contentDescription = "Designs") },
             label = { Text("Designs") }
         )
         NavigationBarItem(
