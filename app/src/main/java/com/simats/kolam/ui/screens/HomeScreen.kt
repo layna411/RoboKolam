@@ -1,10 +1,9 @@
 package com.simats.kolam.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,58 +18,68 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.simats.kolam.ui.theme.Orange
 import com.simats.kolam.ui.theme.Pink
 
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    onNavigateToUpload: () -> Unit,
+    onNavigateToDesigns: () -> Unit,
+    onNavigateToDevices: () -> Unit,
+    onNavigateToSettings: () -> Unit
+) {
     Scaffold(
         topBar = { HomeTopBar() },
-        bottomBar = { HomeBottomNavigation() }
+        bottomBar = { HomeBottomNavigation(onNavigateToDesigns, onNavigateToDevices, onNavigateToSettings) }
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(Color(0xFFFBFBFB))
+                .background(Color(0xFFFEF9FB))
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            Text(
-                text = "Transform your kolam designs into reality",
-                fontSize = 14.sp,
-                color = Color.Gray,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp),
-                textAlign = TextAlign.Center
-            )
-
-            DeviceStatusCard()
+            HomeHeader()
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Text(
-                text = "Quick Actions",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
+            CreateNewDesignCard()
 
-            QuickActionsGrid()
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                SecondaryActionCard(
+                    title = "Import Image",
+                    subtitle = "Convert an image to GCode",
+                    icon = Icons.Outlined.Image,
+                    iconBg = Color(0xFFF5F0FF),
+                    iconTint = Color(0xFF7B4DFF),
+                    modifier = Modifier.weight(1f),
+                    onClick = onNavigateToUpload
+                )
+                SecondaryActionCard(
+                    title = "My Designs",
+                    subtitle = "View and manage your saved designs",
+                    icon = Icons.Outlined.Description,
+                    iconBg = Color(0xFFFFF2E8),
+                    iconTint = Color(0xFFFF9248),
+                    modifier = Modifier.weight(1f),
+                    onClick = { }
+                )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            ZAxisColorSection()
+            RecentDesignsSection()
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            RecentProjectsSection()
+            DeviceConnectivityCard()
             
             Spacer(modifier = Modifier.height(20.dp))
         }
@@ -83,7 +92,7 @@ fun HomeTopBar() {
     CenterAlignedTopAppBar(
         title = {
             Text(
-                text = "Rangolii",
+                text = "RangoliBot",
                 style = TextStyle(
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
@@ -102,16 +111,60 @@ fun HomeTopBar() {
             }
         },
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-            containerColor = Color.White
+            containerColor = Color.Transparent
         )
     )
 }
 
 @Composable
-fun DeviceStatusCard() {
+fun HomeHeader() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column {
+            Text(
+                text = "Hello, Ananya 👋",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Create, customize and bring your\nrangoli designs to life",
+                fontSize = 14.sp,
+                color = Color.Gray,
+                lineHeight = 20.sp
+            )
+        }
+        
+        // Header Mandala Placeholder
+        Box(
+            modifier = Modifier
+                .size(100.dp)
+                .background(
+                    brush = Brush.sweepGradient(listOf(Pink, Orange, Color.Magenta, Pink)),
+                    shape = CircleShape,
+                    alpha = 0.1f
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Default.AutoAwesome,
+                contentDescription = null,
+                modifier = Modifier.size(60.dp),
+                tint = Pink.copy(alpha = 0.5f)
+            )
+        }
+    }
+}
+
+@Composable
+fun CreateNewDesignCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -121,171 +174,178 @@ fun DeviceStatusCard() {
         ) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .background(Color(0xFFF5F0FF), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.Bluetooth, contentDescription = null, tint = Color(0xFF7B4DFF))
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = "Device", fontSize = 12.sp, color = Color.Gray)
-                Text(text = "RANGOLI-001", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(8.dp).background(Color.Green, CircleShape))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "Connected", fontSize = 12.sp, color = Color.Green)
-                }
-            }
-
-            // Placeholder for Machine Image
-            Box(
-                modifier = Modifier
                     .size(80.dp)
-                    .background(Color(0xFFF5F5F5), RoundedCornerShape(8.dp)),
-                contentAlignment = Alignment.Center
+                    .border(1.dp, Pink.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
+                    .padding(4.dp)
             ) {
-                Icon(Icons.Default.PrecisionManufacturing, contentDescription = null, tint = Color.LightGray)
-            }
-            
-            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray)
-        }
-    }
-}
-
-@Composable
-fun QuickActionsGrid() {
-    val actions = listOf(
-        QuickActionItem("Upload Image", Icons.Outlined.CloudUpload, Color(0xFFFFE8EC), Color(0xFFFF4D6D)),
-        QuickActionItem("Image to GCode", Icons.Outlined.EditNote, Color(0xFFFFF2E8), Color(0xFFFF9248)),
-        QuickActionItem("GCode Preview", Icons.Outlined.Layers, Color(0xFFF0E8FF), Color(0xFF7B4DFF)),
-        QuickActionItem("Set Colors (Z-Axis)", Icons.Outlined.Palette, Color(0xFFE8F9F0), Color(0xFF2DCC70)),
-        QuickActionItem("Connect Device", Icons.Outlined.Bluetooth, Color(0xFFF0E8FF), Color(0xFF7B4DFF)),
-        QuickActionItem("Start Drawing", Icons.Outlined.PlayCircleOutline, Color(0xFFFFE8EC), Color(0xFFFF4D6D))
-    )
-
-    Column {
-        for (i in 0 until actions.size step 3) {
-            Row(modifier = Modifier.fillMaxWidth()) {
-                for (j in 0 until 3) {
-                    val index = i + j
-                    if (index < actions.size) {
-                        ActionCard(actions[index], modifier = Modifier.weight(1f).padding(4.dp))
-                    } else {
-                        Spacer(modifier = Modifier.weight(1f).padding(4.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Pink.copy(alpha = 0.05f), RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(brush = Brush.linearGradient(listOf(Orange, Pink)), shape = CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
                     }
                 }
             }
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = "Create New Design", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(text = "Start a new rangoli design from scratch", fontSize = 12.sp, color = Color.Gray)
+            }
+            
+            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Pink)
         }
     }
 }
 
-data class QuickActionItem(val title: String, val icon: ImageVector, val bgColor: Color, val iconColor: Color)
-
 @Composable
-fun ActionCard(item: QuickActionItem, modifier: Modifier = Modifier) {
+fun SecondaryActionCard(
+    title: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconBg: Color,
+    iconTint: Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
     Card(
-        modifier = modifier.aspectRatio(1f),
-        shape = RoundedCornerShape(16.dp),
+        modifier = modifier.clickable { onClick() },
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .background(item.bgColor, CircleShape),
+                    .background(iconBg, RoundedCornerShape(10.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(item.icon, contentDescription = null, tint = item.iconColor, modifier = Modifier.size(24.dp))
+                Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(20.dp))
             }
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(text = title, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = subtitle, fontSize = 11.sp, color = Color.Gray, lineHeight = 14.sp)
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = item.title,
-                fontSize = 11.sp,
-                textAlign = TextAlign.Center,
-                fontWeight = FontWeight.Medium,
-                lineHeight = 14.sp
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = iconTint,
+                modifier = Modifier.align(Alignment.End).size(16.dp)
             )
         }
     }
 }
 
 @Composable
-fun ZAxisColorSection() {
+fun RecentDesignsSection() {
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = "Z-Axis Color System", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            Text(text = "Edit", fontSize = 14.sp, color = Color(0xFF7B4DFF))
+            Text(text = "Recent Designs", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text(text = "View all", fontSize = 14.sp, color = Pink)
         }
         
         Spacer(modifier = Modifier.height(12.dp))
         
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            ZColorItem("Z = 0.5mm", "Color 1 (Pink)", Color(0xFFFF1493))
-            ZColorItem("Z = 1.5mm", "Color 2 (Green)", Color(0xFF32CD32))
-            ZColorItem("Z = 2.5mm", "Color 3 (Yellow)", Color(0xFFFFD700))
-        }
+        DesignItem("Festival Rangoli", "12,842 lines  •  3 Colors", "Today, 9:30 AM", Color.Magenta)
+        DesignItem("Simple Kolam", "8,156 lines  •  2 Colors", "Yesterday, 6:15 PM", Color(0xFF7B4DFF))
+        DesignItem("Lotus Design", "15,320 lines  •  4 Colors", "May 12, 2024", Color(0xFFFF9248))
     }
 }
 
 @Composable
-fun ZColorItem(zValue: String, colorName: String, color: Color) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(16.dp).background(color, CircleShape))
-        Spacer(modifier = Modifier.width(8.dp))
-        Column {
-            Text(text = zValue, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            Text(text = colorName, fontSize = 10.sp, color = Color.Gray)
-        }
-    }
-}
-
-@Composable
-fun RecentProjectsSection() {
-    Column {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+fun DesignItem(title: String, stats: String, date: String, color: Color) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(60.dp)
+                .background(color.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                .padding(8.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Text(text = "Recent Projects", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            Text(text = "View All", fontSize = 14.sp, color = Color(0xFF7B4DFF))
+            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = color.copy(alpha = 0.5f))
         }
         
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.width(12.dp))
         
-        Card(
-            modifier = Modifier.fillMaxWidth().height(120.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-        ) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(Icons.Default.Description, contentDescription = null, tint = Color(0xFFE0E0E0), modifier = Modifier.size(40.dp))
-                Text(text = "No recent projects", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                Text(text = "Upload an image to get started", fontSize = 12.sp, color = Color.Gray)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text(text = stats, fontSize = 11.sp, color = Color.Gray)
+        }
+        
+        Column(horizontalAlignment = Alignment.End) {
+            Text(text = date, fontSize = 10.sp, color = Color.Gray)
+            IconButton(onClick = { }, modifier = Modifier.size(24.dp)) {
+                Icon(Icons.Default.MoreVert, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
             }
         }
     }
 }
 
 @Composable
-fun HomeBottomNavigation() {
+fun DeviceConnectivityCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF6FFF9)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2DCC70).copy(alpha = 0.1f))
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(Color.White, RoundedCornerShape(10.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.SmartToy, contentDescription = null, tint = Color(0xFF2DCC70))
+            }
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = "RangoliBot X1", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(6.dp).background(Color(0xFF2DCC70), CircleShape))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = "Connected", fontSize = 11.sp, color = Color(0xFF2DCC70))
+                }
+            }
+            
+            TextButton(
+                onClick = { },
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+            ) {
+                Text(text = "Connect Device", fontSize = 12.sp, color = Color(0xFF2DCC70), fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xFF2DCC70), modifier = Modifier.size(16.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun HomeBottomNavigation(onDesignsClick: () -> Unit, onDevicesClick: () -> Unit, onSettingsClick: () -> Unit) {
     NavigationBar(
         containerColor = Color.White,
         tonalElevation = 8.dp
@@ -305,25 +365,19 @@ fun HomeBottomNavigation() {
         )
         NavigationBarItem(
             selected = false,
-            onClick = { },
-            icon = { Icon(Icons.Default.Description, contentDescription = "Projects") },
-            label = { Text("Projects") }
+            onClick = onDesignsClick,
+            icon = { Icon(Icons.Default.AutoAwesome, contentDescription = "Designs") },
+            label = { Text("Designs") }
         )
         NavigationBarItem(
             selected = false,
-            onClick = { },
-            icon = { Icon(Icons.Default.Tune, contentDescription = "Control") },
-            label = { Text("Control") }
+            onClick = onDevicesClick,
+            icon = { Icon(Icons.Default.SmartToy, contentDescription = "Devices") },
+            label = { Text("Devices") }
         )
         NavigationBarItem(
             selected = false,
-            onClick = { },
-            icon = { Icon(Icons.Default.History, contentDescription = "History") },
-            label = { Text("History") }
-        )
-        NavigationBarItem(
-            selected = false,
-            onClick = { },
+            onClick = onSettingsClick,
             icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
             label = { Text("Settings") }
         )
