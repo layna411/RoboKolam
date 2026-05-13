@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.simats.kolam.ui.screens.HomeScreen
 import com.simats.kolam.ui.screens.LoginScreen
 import com.simats.kolam.ui.screens.SignupScreen
 import com.simats.kolam.ui.screens.SplashScreen
@@ -40,14 +41,25 @@ fun KolamApp() {
         composable("login") {
             LoginScreen(
                 onNavigateToSignup = { navController.navigate("signup") },
-                onLoginSuccess = { /* Navigate to Home */ }
+                onLoginSuccess = {
+                    navController.navigate("home") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                }
             )
         }
         composable("signup") {
             SignupScreen(
                 onNavigateToLogin = { navController.navigate("login") },
-                onSignupSuccess = { /* Navigate to Home or Login */ }
+                onSignupSuccess = {
+                    navController.navigate("home") {
+                        popUpTo("signup") { inclusive = true }
+                    }
+                }
             )
+        }
+        composable("home") {
+            HomeScreen()
         }
     }
 }
