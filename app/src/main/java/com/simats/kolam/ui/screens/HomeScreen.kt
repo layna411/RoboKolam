@@ -1,7 +1,6 @@
 package com.simats.kolam.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,9 +11,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -22,66 +22,96 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.simats.kolam.ui.theme.Orange
-import com.simats.kolam.ui.theme.Pink
+import com.simats.kolam.ui.components.GlassCard
+import com.simats.kolam.ui.theme.*
+
+import com.simats.kolam.viewmodel.KolamViewModel
 
 @Composable
 fun HomeScreen(
+    viewModel: KolamViewModel,
     onNavigateToUpload: () -> Unit,
     onNavigateToDesigns: () -> Unit,
     onNavigateToDevices: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
+    val isConnected by viewModel.isConnected.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
+    
     Scaffold(
         topBar = { HomeTopBar() },
-        bottomBar = { HomeBottomNavigation(onNavigateToDesigns, onNavigateToDevices, onNavigateToSettings) }
+        bottomBar = { HomeBottomNavigation(onNavigateToDesigns, onNavigateToDevices, onNavigateToSettings) },
+        containerColor = Color.Transparent
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .background(Color(0xFFFEF9FB))
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp)
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(BackgroundStart, BackgroundEnd)
+                    )
+                )
         ) {
-            HomeHeader()
+            // Glassmorphism background blur circles
+            Box(modifier = Modifier
+                .offset(x = 100.dp, y = (-100).dp)
+                .size(300.dp)
+                .background(VioletPrimary.copy(alpha = 0.15f), CircleShape)
+                .blur(80.dp)
+            )
+            Box(modifier = Modifier
+                .offset(x = (-100).dp, y = 400.dp)
+                .size(250.dp)
+                .background(BlueAccent.copy(alpha = 0.15f), CircleShape)
+                .blur(70.dp)
+            )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
+            ) {
+                HomeHeader(username = currentUser?.username ?: "Creator")
 
-            CreateNewDesignCard()
+                Spacer(modifier = Modifier.height(32.dp))
 
-            Spacer(modifier = Modifier.height(16.dp))
+                CreateNewDesignCard()
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                SecondaryActionCard(
-                    title = "Import Image",
-                    subtitle = "Convert an image to GCode",
-                    icon = Icons.Outlined.Image,
-                    iconBg = Color(0xFFF5F0FF),
-                    iconTint = Color(0xFF7B4DFF),
-                    modifier = Modifier.weight(1f),
-                    onClick = onNavigateToUpload
-                )
-                SecondaryActionCard(
-                    title = "My Designs",
-                    subtitle = "View and manage your saved designs",
-                    icon = Icons.Outlined.Description,
-                    iconBg = Color(0xFFFFF2E8),
-                    iconTint = Color(0xFFFF9248),
-                    modifier = Modifier.weight(1f),
-                    onClick = { }
-                )
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    SecondaryActionCard(
+                        title = "Import Image",
+                        subtitle = "Convert an image to GCode",
+                        icon = Icons.Outlined.Image,
+                        iconBg = VioletPrimary.copy(alpha = 0.1f),
+                        iconTint = VioletPrimary,
+                        modifier = Modifier.weight(1f),
+                        onClick = onNavigateToUpload
+                    )
+                    SecondaryActionCard(
+                        title = "My Designs",
+                        subtitle = "View saved designs",
+                        icon = Icons.Outlined.Folder,
+                        iconBg = TealAccent.copy(alpha = 0.1f),
+                        iconTint = TealAccent,
+                        modifier = Modifier.weight(1f),
+                        onClick = onNavigateToDesigns
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                RecentDesignsSection()
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                DeviceConnectivityCard(isConnected)
+                
+                Spacer(modifier = Modifier.height(20.dp))
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            RecentDesignsSection()
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            DeviceConnectivityCard()
-            
-            Spacer(modifier = Modifier.height(20.dp))
         }
     }
 }
@@ -94,30 +124,31 @@ fun HomeTopBar() {
             Text(
                 text = "RangoliBot",
                 style = TextStyle(
-                    fontSize = 24.sp,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    brush = Brush.horizontalGradient(listOf(Orange, Pink))
+                    color = DarkText
                 )
             )
         },
-//        navigationIcon = {
-//            IconButton(onClick = { }) {
-//                Icon(Icons.Default.Menu, contentDescription = "Menu")
-//            }
-//        },
         actions = {
-            IconButton(onClick = { }) {
-                Icon(Icons.Default.NotificationsNone, contentDescription = "Notifications")
+            IconButton(
+                onClick = { },
+                modifier = Modifier
+                    .padding(end = 8.dp)
+                    .background(Color.White.copy(alpha = 0.6f), CircleShape)
+                    .size(40.dp)
+            ) {
+                Icon(Icons.Outlined.Notifications, contentDescription = "Notifications", tint = DarkText)
             }
         },
-        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+        colors = TopAppBarDefaults.topAppBarColors(
             containerColor = Color.Transparent
         )
     )
 }
 
 @Composable
-fun HomeHeader() {
+fun HomeHeader(username: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -125,36 +156,17 @@ fun HomeHeader() {
     ) {
         Column {
             Text(
-                text = "Hello, Ananya 👋",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black
+                text = "Hello, $username 👋",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = DarkText
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "Create, customize and bring your\nrangoli designs to life",
-                fontSize = 14.sp,
-                color = Color.Gray,
-                lineHeight = 20.sp
-            )
-        }
-        
-        // Header Mandala Placeholder
-        Box(
-            modifier = Modifier
-                .size(100.dp)
-                .background(
-                    brush = Brush.sweepGradient(listOf(Pink, Orange, Color.Magenta, Pink)),
-                    shape = CircleShape,
-                    alpha = 0.1f
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                Icons.Default.AutoAwesome,
-                contentDescription = null,
-                modifier = Modifier.size(60.dp),
-                tint = Pink.copy(alpha = 0.5f)
+                fontSize = 15.sp,
+                color = GrayText,
+                lineHeight = 22.sp
             )
         }
     }
@@ -162,47 +174,34 @@ fun HomeHeader() {
 
 @Composable
 fun CreateNewDesignCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    GlassCard(
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(80.dp)
-                    .border(1.dp, Pink.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
-                    .padding(4.dp)
+                    .size(70.dp)
+                    .background(
+                        brush = Brush.linearGradient(listOf(VioletPrimary, VioletSecondary)),
+                        shape = RoundedCornerShape(20.dp)
+                    ),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Pink.copy(alpha = 0.05f), RoundedCornerShape(12.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .background(brush = Brush.linearGradient(listOf(Orange, Pink)), shape = CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
-                    }
-                }
+                Icon(Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
             }
             
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(20.dp))
             
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = "Create New Design", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text(text = "Start a new rangoli design from scratch", fontSize = 12.sp, color = Color.Gray)
+                Text(text = "Create New Design", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = DarkText)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(text = "Start a new rangoli design from scratch", fontSize = 13.sp, color = GrayText)
             }
             
-            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Pink)
+            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = GrayText)
         }
     }
 }
@@ -217,32 +216,22 @@ fun SecondaryActionCard(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    Card(
-        modifier = modifier.clickable { onClick() },
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    GlassCard(
+        modifier = modifier.clickable { onClick() }
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .background(iconBg, RoundedCornerShape(10.dp)),
+                    .size(44.dp)
+                    .background(iconBg, RoundedCornerShape(14.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(20.dp))
+                Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(24.dp))
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(text = title, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(text = title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DarkText)
             Spacer(modifier = Modifier.height(4.dp))
-            Text(text = subtitle, fontSize = 11.sp, color = Color.Gray, lineHeight = 14.sp)
-            Spacer(modifier = Modifier.height(8.dp))
-            Icon(
-                Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = iconTint,
-                modifier = Modifier.align(Alignment.End).size(16.dp)
-            )
+            Text(text = subtitle, fontSize = 12.sp, color = GrayText, lineHeight = 16.sp)
         }
     }
 }
@@ -255,90 +244,88 @@ fun RecentDesignsSection() {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = "Recent Designs", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            Text(text = "View all", fontSize = 14.sp, color = Pink)
+            Text(text = "Recent Designs", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = DarkText)
+            Text(text = "See All", fontSize = 15.sp, color = VioletPrimary, fontWeight = FontWeight.Medium)
         }
         
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         
-        DesignItem("Festival Rangoli", "12,842 lines  •  3 Colors", "Today, 9:30 AM", Color.Magenta)
-        DesignItem("Simple Kolam", "8,156 lines  •  2 Colors", "Yesterday, 6:15 PM", Color(0xFF7B4DFF))
-        DesignItem("Lotus Design", "15,320 lines  •  4 Colors", "May 12, 2024", Color(0xFFFF9248))
+        GlassCard {
+            Column(modifier = Modifier.padding(16.dp)) {
+                DesignItem("Festival Rangoli", "12,842 lines  •  3 Colors", "Today", VioletPrimary)
+                HorizontalDivider(color = Color.White.copy(alpha = 0.3f), modifier = Modifier.padding(vertical = 12.dp))
+                DesignItem("Simple Kolam", "8,156 lines  •  2 Colors", "Yesterday", BlueAccent)
+                HorizontalDivider(color = Color.White.copy(alpha = 0.3f), modifier = Modifier.padding(vertical = 12.dp))
+                DesignItem("Lotus Design", "15,320 lines  •  4 Colors", "May 12", TealAccent)
+            }
+        }
     }
 }
 
 @Composable
 fun DesignItem(title: String, stats: String, date: String, color: Color) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .size(60.dp)
-                .background(color.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
-                .padding(8.dp),
+                .size(48.dp)
+                .background(Color.White, RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = color.copy(alpha = 0.5f))
+            Icon(Icons.Outlined.AutoAwesome, contentDescription = null, tint = color)
         }
         
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(16.dp))
         
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            Text(text = stats, fontSize = 11.sp, color = Color.Gray)
+            Text(text = title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DarkText)
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(text = stats, fontSize = 13.sp, color = GrayText)
         }
         
-        Column(horizontalAlignment = Alignment.End) {
-            Text(text = date, fontSize = 10.sp, color = Color.Gray)
-            IconButton(onClick = { }, modifier = Modifier.size(24.dp)) {
-                Icon(Icons.Default.MoreVert, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp))
-            }
-        }
+        Text(text = date, fontSize = 13.sp, color = GrayText)
     }
 }
 
 @Composable
-fun DeviceConnectivityCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF6FFF9)),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2DCC70).copy(alpha = 0.1f))
+fun DeviceConnectivityCard(isConnected: Boolean = false) {
+    GlassCard(
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .background(Color.White, RoundedCornerShape(10.dp)),
+                    .size(50.dp)
+                    .background(Color.White, RoundedCornerShape(14.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.SmartToy, contentDescription = null, tint = Color(0xFF2DCC70))
+                Icon(Icons.Default.Bluetooth, contentDescription = null, tint = VioletPrimary)
             }
             
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(16.dp))
             
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = "RangoliBot X1", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text(text = "RangoliBot X1", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DarkText)
+                Spacer(modifier = Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(6.dp).background(Color(0xFF2DCC70), CircleShape))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "Connected", fontSize = 11.sp, color = Color(0xFF2DCC70))
+                    Box(modifier = Modifier.size(8.dp).background(if (isConnected) Color(0xFF34C759) else Color.Gray, CircleShape))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(text = if (isConnected) "Connected" else "Disconnected", fontSize = 13.sp, color = if (isConnected) Color(0xFF34C759) else Color.Gray, fontWeight = FontWeight.Medium)
                 }
             }
             
-            TextButton(
-                onClick = { },
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+            Box(
+                modifier = Modifier
+                    .background(Color.White, RoundedCornerShape(20.dp))
+                    .clickable { }
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                Text(text = "Connect Device", fontSize = 12.sp, color = Color(0xFF2DCC70), fontWeight = FontWeight.Bold)
-                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xFF2DCC70), modifier = Modifier.size(16.dp))
+                Text(text = "Manage", fontSize = 13.sp, color = VioletPrimary, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -347,39 +334,52 @@ fun DeviceConnectivityCard() {
 @Composable
 fun HomeBottomNavigation(onDesignsClick: () -> Unit, onDevicesClick: () -> Unit, onSettingsClick: () -> Unit) {
     NavigationBar(
-        containerColor = Color.White,
-        tonalElevation = 8.dp
+        containerColor = Color.White.copy(alpha = 0.8f),
+        tonalElevation = 0.dp,
+        modifier = Modifier.background(Color.White.copy(alpha = 0.9f))
     ) {
         NavigationBarItem(
             selected = true,
             onClick = { },
             icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-            label = { Text("Home") },
+            label = { Text("Home", fontWeight = FontWeight.Medium) },
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = Pink,
-                selectedTextColor = Pink,
-                unselectedIconColor = Color.Gray,
-                unselectedTextColor = Color.Gray,
-                indicatorColor = Color.Transparent
+                selectedIconColor = VioletPrimary,
+                selectedTextColor = VioletPrimary,
+                unselectedIconColor = GrayText,
+                unselectedTextColor = GrayText,
+                indicatorColor = VioletPrimary.copy(alpha = 0.1f)
             )
         )
         NavigationBarItem(
             selected = false,
             onClick = onDesignsClick,
-            icon = { Icon(Icons.Default.Folder, contentDescription = "Designs") },
-            label = { Text("Designs") }
+            icon = { Icon(Icons.Outlined.Folder, contentDescription = "Designs") },
+            label = { Text("Designs", fontWeight = FontWeight.Medium) },
+            colors = NavigationBarItemDefaults.colors(
+                unselectedIconColor = GrayText,
+                unselectedTextColor = GrayText
+            )
         )
         NavigationBarItem(
             selected = false,
             onClick = onDevicesClick,
-            icon = { Icon(Icons.Default.SmartToy, contentDescription = "Devices") },
-            label = { Text("Devices") }
+            icon = { Icon(Icons.Outlined.Bluetooth, contentDescription = "Devices") },
+            label = { Text("Devices", fontWeight = FontWeight.Medium) },
+            colors = NavigationBarItemDefaults.colors(
+                unselectedIconColor = GrayText,
+                unselectedTextColor = GrayText
+            )
         )
         NavigationBarItem(
             selected = false,
             onClick = onSettingsClick,
-            icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-            label = { Text("Settings") }
+            icon = { Icon(Icons.Outlined.Settings, contentDescription = "Settings") },
+            label = { Text("Settings", fontWeight = FontWeight.Medium) },
+            colors = NavigationBarItemDefaults.colors(
+                unselectedIconColor = GrayText,
+                unselectedTextColor = GrayText
+            )
         )
     }
 }

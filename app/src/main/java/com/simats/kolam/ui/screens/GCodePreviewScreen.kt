@@ -12,9 +12,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -25,71 +27,100 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.simats.kolam.ui.theme.Orange
-import com.simats.kolam.ui.theme.Pink
+import com.simats.kolam.ui.components.GlassCard
+import com.simats.kolam.ui.components.GradientButton
+import com.simats.kolam.ui.theme.*
+import com.simats.kolam.viewmodel.KolamViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GCodePreviewScreen(onBackClick: () -> Unit, onContinueClick: () -> Unit) {
+fun GCodePreviewScreen(
+    viewModel: KolamViewModel,
+    onBackClick: () -> Unit,
+    onContinueClick: () -> Unit
+) {
+    val generatedGCode by viewModel.generatedGCode.collectAsState()
+    
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        text = "GCode Preview",
+                        text = "G-Code Preview",
                         style = TextStyle(
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
-                            brush = Brush.horizontalGradient(listOf(Orange, Pink))
+                            color = DarkText
                         )
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ChevronLeft, contentDescription = "Back")
+                    IconButton(
+                        onClick = onBackClick,
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .background(Color.White.copy(alpha = 0.6f), CircleShape)
+                            .size(40.dp)
+                    ) {
+                        Icon(Icons.Default.ChevronLeft, contentDescription = "Back", tint = DarkText)
                     }
                 },
-                actions = {
-                    IconButton(onClick = { }) {
-                        Icon(Icons.Outlined.HelpOutline, contentDescription = "Help")
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
             )
-        }
+        },
+        containerColor = Color.Transparent
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .background(Color(0xFFFBFBFB))
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(BackgroundStart, BackgroundEnd)
+                    )
+                )
         ) {
-            GCodeStepIndicator()
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Preview3DCard()
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            StatisticsRow()
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                GCodeLinesCard(modifier = Modifier.weight(1f))
-                ColorMappingCard(modifier = Modifier.weight(1f))
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            GradientButtonWithIcon(
-                text = "Continue to Set Colors (Z-Axis)",
-                onClick = onContinueClick
+            Box(modifier = Modifier
+                .offset(x = (-50).dp, y = 100.dp)
+                .size(250.dp)
+                .background(VioletPrimary.copy(alpha = 0.15f), CircleShape)
+                .blur(70.dp)
             )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                GCodeStepIndicator()
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Preview3DCard()
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                StatisticsRow()
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                GCodeLinesCard(generatedGCode)
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                ColorMappingCard()
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                GradientButton(
+                    text = "Send to Machine",
+                    onClick = onContinueClick
+                )
+                
+                Spacer(modifier = Modifier.height(30.dp))
+            }
         }
     }
 }
@@ -97,73 +128,87 @@ fun GCodePreviewScreen(onBackClick: () -> Unit, onContinueClick: () -> Unit) {
 @Composable
 fun GCodeStepIndicator() {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        StepItem("Image", Icons.Default.CheckCircle, Color.Green, true)
-        HorizontalDivider(modifier = Modifier.weight(1f).padding(horizontal = 8.dp), color = Color.LightGray)
-        StepItem("Processing", Icons.Default.CheckCircle, Color.Green, true)
-        HorizontalDivider(modifier = Modifier.weight(1f).padding(horizontal = 8.dp), color = Color.LightGray)
-        StepItem("GCode", Icons.Default.Description, Pink, true, isCurrent = true)
+        StepItem("Process", Icons.Default.CheckCircle, Color(0xFF34C759), true)
+        HorizontalDivider(modifier = Modifier.weight(1f).padding(horizontal = 8.dp), color = VioletPrimary.copy(alpha = 0.3f))
+        StepItem("Vectorize", Icons.Default.CheckCircle, Color(0xFF34C759), true)
+        HorizontalDivider(modifier = Modifier.weight(1f).padding(horizontal = 8.dp), color = VioletPrimary.copy(alpha = 0.3f))
+        StepItem("G-Code", Icons.Default.Description, VioletPrimary, true, isCurrent = true)
+    }
+}
+
+@Composable
+fun StepItem(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, isCompleted: Boolean, isCurrent: Boolean = false) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .background(if (isCurrent) color.copy(alpha = 0.2f) else color, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = if (isCurrent) color else Color.White, modifier = Modifier.size(16.dp))
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(text = label, fontSize = 10.sp, fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium, color = if (isCurrent) DarkText else GrayText)
     }
 }
 
 @Composable
 fun Preview3DCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth().height(300.dp),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    GlassCard(
+        modifier = Modifier.fillMaxWidth().height(320.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(20.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "Preview", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(text = "Live Toolpath Simulation", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DarkText)
                 Box(
                     modifier = Modifier
-                        .border(1.dp, Color.LightGray, RoundedCornerShape(8.dp))
-                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                        .background(Color.White.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.ViewInAr, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("3D View", fontSize = 12.sp)
-                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.ViewInAr, contentDescription = null, modifier = Modifier.size(16.dp), tint = VioletPrimary)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("3D View", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = VioletPrimary)
                     }
                 }
             }
 
-            // Isometric Grid with Mandala Placeholder
+            // Interactive Toolpath Canvas Placeholder
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val center = Offset(size.width / 2, size.height / 2)
                     
-                    // Draw simplified isometric grid
-                    val gridColor = Color.LightGray.copy(alpha = 0.3f)
-                    for (i in -5..5) {
-                        drawLine(gridColor, Offset(center.x + i * 40 - 200, center.y + i * 20 - 100), Offset(center.x + i * 40 + 200, center.y + i * 20 + 100), strokeWidth = 1f)
-                        drawLine(gridColor, Offset(center.x - i * 40 - 200, center.y + i * 20 + 100), Offset(center.x - i * 40 + 200, center.y + i * 20 - 100), strokeWidth = 1f)
-                    }
-
-                    // Draw Axes
-                    drawLine(Color.Blue, center, Offset(center.x, center.y - 100), strokeWidth = 2f) // Z
-                    drawLine(Color.Green, center, Offset(center.x - 150, center.y + 75), strokeWidth = 2f) // Y
-                    drawLine(Color.Red, center, Offset(center.x + 150, center.y + 75), strokeWidth = 2f) // X
+                    // CNC Workspace Bed
+                    drawRect(
+                        color = Color.White.copy(alpha = 0.5f),
+                        topLeft = Offset(center.x - 120, center.y - 80),
+                        size = androidx.compose.ui.geometry.Size(240f, 160f)
+                    )
                     
-                    // Simplified Mandala Shape
-                    drawCircle(Pink.copy(alpha = 0.3f), radius = 80f, center = center, style = Stroke(width = 2f))
-                    drawCircle(Orange.copy(alpha = 0.3f), radius = 60f, center = center, style = Stroke(width = 2f))
+                    drawRect(
+                        color = VioletPrimary.copy(alpha = 0.2f),
+                        topLeft = Offset(center.x - 120, center.y - 80),
+                        size = androidx.compose.ui.geometry.Size(240f, 160f),
+                        style = Stroke(2f)
+                    )
+
+                    // Kolam Path
+                    drawCircle(Color(0xFFFF3B30), radius = 60f, center = center, style = Stroke(width = 3f))
+                    drawCircle(Color(0xFFFFCC00), radius = 45f, center = center, style = Stroke(width = 3f))
+                    drawCircle(Color(0xFF007AFF), radius = 30f, center = center, style = Stroke(width = 3f))
+                    
+                    // Toolhead Simulation
+                    drawCircle(Color.Black, radius = 8f, center = Offset(center.x + 45f, center.y))
+                    drawLine(Color.DarkGray, Offset(center.x + 45f, center.y), Offset(center.x + 45f, center.y - 60f), strokeWidth = 4f)
                 }
-                
-                // Axis Labels
-                Text("Z", color = Color.Blue, modifier = Modifier.align(Alignment.Center).offset(y = (-110).dp), fontWeight = FontWeight.Bold)
-                Text("Y", color = Color.Green, modifier = Modifier.align(Alignment.Center).offset(x = (-160).dp, y = 85.dp), fontWeight = FontWeight.Bold)
-                Text("X", color = Color.Red, modifier = Modifier.align(Alignment.Center).offset(x = 160.dp, y = 85.dp), fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -172,121 +217,73 @@ fun Preview3DCard() {
 @Composable
 fun StatisticsRow() {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        StatItem(Icons.Outlined.Architecture, "Total Lines", "12,842")
-        StatItem(Icons.Outlined.CropFree, "Dimensions", "400 x 400 mm")
-        StatItem(Icons.Outlined.AccessTime, "Estimated Time", "2h 35m")
-        StatItem(Icons.Outlined.Palette, "Color Changes (Z)", "3")
+        StatItem(Icons.Outlined.Timeline, "Toolpath", "15,204 mm")
+        StatItem(Icons.Outlined.Speed, "Est. Time", "45 min")
+        StatItem(Icons.Outlined.Palette, "Colors", "3")
+        StatItem(Icons.Outlined.Layers, "Layers", "5")
     }
 }
 
 @Composable
 fun StatItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
-    Column(horizontalAlignment = Alignment.Start) {
-        Icon(icon, contentDescription = null, tint = Pink, modifier = Modifier.size(18.dp))
-        Text(text = label, fontSize = 10.sp, color = Color.Gray, modifier = Modifier.padding(top = 4.dp))
-        Text(text = value, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+    GlassCard(modifier = Modifier.width(80.dp).height(80.dp)) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxSize().padding(8.dp)
+        ) {
+            Icon(icon, contentDescription = null, tint = VioletPrimary, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = label, fontSize = 9.sp, color = GrayText)
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(text = value, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = DarkText)
+        }
     }
 }
 
 @Composable
-fun GCodeLinesCard(modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(text = "GCode (First 20 Lines)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+fun GCodeLinesCard(gCodeText: String) {
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(text = "Generated G-Code", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DarkText)
+                Icon(Icons.Default.ContentCopy, contentDescription = null, tint = VioletPrimary, modifier = Modifier.size(18.dp))
+            }
             
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp)
-                    .padding(vertical = 8.dp)
-                    .background(Color(0xFFF9F9F9), RoundedCornerShape(8.dp))
-                    .padding(8.dp)
+                    .height(160.dp)
+                    .padding(vertical = 12.dp)
+                    .background(Color.White.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                    .padding(12.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
                 Text(
-                    text = "; Rangoli GCode\n; Generated on 20 May 2024\nG21 ; Set units to mm\nG90 ; Absolute positioning\nG28 ; Home all axes\n; --- Start Drawing ---\nG1 Z0.5 F300 ; Color 1 (Pink)\nG1 X10.00 Y10.00 F1200\nG1 X20.45 Y10.00\nG1 X20.45 Y20.45\nG1 X10.00 Y20.45\nG1 Z1.5 ; Color 2 (Green)\n...",
-                    fontSize = 10.sp,
+                    text = gCodeText.ifEmpty { "; No GCode generated yet" },
+                    fontSize = 11.sp,
                     fontFamily = FontFamily.Monospace,
-                    lineHeight = 14.sp
+                    color = Color.DarkGray,
+                    lineHeight = 16.sp
                 )
-            }
-            
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = { },
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(0.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Pink)
-                ) {
-                    Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(14.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Full GCode", fontSize = 10.sp)
-                }
-                OutlinedButton(
-                    onClick = { },
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(0.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Pink)
-                ) {
-                    Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(14.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Export", fontSize = 10.sp)
-                }
             }
         }
     }
 }
 
 @Composable
-fun ColorMappingCard(modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text(text = "Z-Axis Color Mapping", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            Text(text = "Z height is used to apply colors", fontSize = 10.sp, color = Color.Gray)
+fun ColorMappingCard() {
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(text = "Machine Tool Mapping", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DarkText)
+            Text(text = "Z commands are used to select colors", fontSize = 12.sp, color = GrayText)
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            Box(modifier = Modifier.fillMaxWidth().height(180.dp), contentAlignment = Alignment.Center) {
-                // Simplified diagram
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val lineX = 80f
-                    
-                    // Nozzle representation
-                    drawRect(Color.Gray, Offset(lineX - 10f, 0f), size = androidx.compose.ui.geometry.Size(20f, 40f))
-                    
-                    // Vertical path
-                    drawLine(Color.LightGray, Offset(lineX, 40f), Offset(lineX, 160f))
-                    
-                    // Points and labels
-                    val points = listOf(
-                        Triple(60f, Color(0xFFFF1493), "Z = 0.5mm"),
-                        Triple(100f, Color(0xFF32CD32), "Z = 1.5mm"),
-                        Triple(140f, Color(0xFFFFD700), "Z = 2.5mm"),
-                        Triple(170f, Color.Gray, "Z = 0mm")
-                    )
-                    
-                    points.forEach { (y, color, label) ->
-                        drawCircle(color, radius = 6f, center = Offset(lineX, y))
-                    }
-                }
-                
-                Column(modifier = Modifier.fillMaxSize().padding(start = 60.dp), verticalArrangement = Arrangement.SpaceEvenly) {
-                    MappingItem(Color(0xFFFF1493), "Z = 0.5mm", "Color 1 (Pink)")
-                    MappingItem(Color(0xFF32CD32), "Z = 1.5mm", "Color 2 (Green)")
-                    MappingItem(Color(0xFFFFD700), "Z = 2.5mm", "Color 3 (Yellow)")
-                    MappingItem(Color.Gray, "Z = 0mm", "Base (No Color)")
-                }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                MappingItem(Color(0xFFFF3B30), "Z1", "Red Dispenser")
+                MappingItem(Color(0xFFFFCC00), "Z2", "Yellow Dispenser")
+                MappingItem(Color(0xFF007AFF), "Z3", "Blue Dispenser")
             }
         }
     }
@@ -294,12 +291,10 @@ fun ColorMappingCard(modifier: Modifier = Modifier) {
 
 @Composable
 fun MappingItem(color: Color, zValue: String, label: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(12.dp).background(color, CircleShape))
-        Spacer(modifier = Modifier.width(8.dp))
-        Column {
-            Text(text = zValue, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-            Text(text = label, fontSize = 8.sp, color = Color.Gray)
-        }
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(modifier = Modifier.size(20.dp).background(color, CircleShape))
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(text = zValue, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = DarkText)
+        Text(text = label, fontSize = 10.sp, color = GrayText)
     }
 }

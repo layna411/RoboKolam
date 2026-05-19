@@ -15,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -24,68 +25,99 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.simats.kolam.ui.theme.Orange
-import com.simats.kolam.ui.theme.Pink
+import com.simats.kolam.ui.components.GlassCard
+import com.simats.kolam.ui.components.GradientButton
+import com.simats.kolam.ui.theme.*
+import com.simats.kolam.viewmodel.KolamViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ImageToGCodeScreen(onBackClick: () -> Unit, onContinueClick: () -> Unit) {
+fun ImageToGCodeScreen(
+    viewModel: KolamViewModel,
+    onBackClick: () -> Unit,
+    onContinueClick: () -> Unit
+) {
+    val progress by viewModel.processingProgress.collectAsState()
+    val isComplete by viewModel.isProcessingComplete.collectAsState()
+    
+    LaunchedEffect(key1 = true) {
+        viewModel.startProcessing()
+    }
+    
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        text = "Image to GCode",
+                        text = "Image Processing",
                         style = TextStyle(
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
-                            brush = Brush.horizontalGradient(listOf(Orange, Pink))
+                            color = DarkText
                         )
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ChevronLeft, contentDescription = "Back")
+                    IconButton(
+                        onClick = onBackClick,
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .background(Color.White.copy(alpha = 0.6f), CircleShape)
+                            .size(40.dp)
+                    ) {
+                        Icon(Icons.Default.ChevronLeft, contentDescription = "Back", tint = DarkText)
                     }
                 },
-                actions = {
-                    IconButton(onClick = { }) {
-                        Icon(Icons.Outlined.HelpOutline, contentDescription = "Help")
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
             )
-        }
+        },
+        containerColor = Color.Transparent
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .background(Color(0xFFFBFBFB))
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(BackgroundStart, BackgroundEnd)
+                    )
+                )
         ) {
-            StepIndicator()
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            ProcessingStatusCard(progress = 0.85f)
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            ConversionSettingsCard()
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-//            ZAxisColorSection()
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            GradientButtonWithIcon(
-                text = "Continue to Preview",
-                onClick = onContinueClick
+            Box(modifier = Modifier
+                .offset(x = 150.dp, y = 50.dp)
+                .size(250.dp)
+                .background(VioletPrimary.copy(alpha = 0.15f), CircleShape)
+                .blur(70.dp)
             )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                StepIndicator()
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                ProcessingStatusCard(progress = progress)
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                ConversionSettingsCard()
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                if (isComplete) {
+                    GradientButton(
+                        text = "Generate G-Code",
+                        onClick = onContinueClick
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(30.dp))
+            }
         }
     }
 }
@@ -93,58 +125,38 @@ fun ImageToGCodeScreen(onBackClick: () -> Unit, onContinueClick: () -> Unit) {
 @Composable
 fun StepIndicator() {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        StepItem("Image", Icons.Default.CheckCircle, Color.Green, true)
-        Divider(modifier = Modifier.weight(1f).padding(horizontal = 8.dp), color = Color.LightGray)
-        StepItem("Processing", Icons.Default.Image, Pink, true, isCurrent = true)
-        Divider(modifier = Modifier.weight(1f).padding(horizontal = 8.dp), color = Color.LightGray)
-        StepItem("GCode", Icons.Default.GridOn, Color.LightGray, false)
-    }
-}
-
-@Composable
-fun StepItem(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, isCompleted: Boolean, isCurrent: Boolean = false) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .background(if (isCurrent) Color.Transparent else color.copy(alpha = 0.1f), CircleShape)
-                .then(if (isCurrent) Modifier.background(brush = Brush.linearGradient(listOf(Orange, Pink)), shape = CircleShape) else Modifier),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(icon, contentDescription = null, tint = if (isCurrent) Color.White else color, modifier = Modifier.size(18.dp))
-        }
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(text = label, fontSize = 10.sp, color = if (isCurrent) Pink else Color.Gray, fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal)
+        StepItem("Process", Icons.Default.CheckCircle, Color(0xFF34C759), true)
+        HorizontalDivider(modifier = Modifier.weight(1f).padding(horizontal = 8.dp), color = VioletPrimary.copy(alpha = 0.3f))
+        StepItem("Vectorize", Icons.Default.Image, VioletPrimary, true, isCurrent = true)
+        HorizontalDivider(modifier = Modifier.weight(1f).padding(horizontal = 8.dp), color = VioletPrimary.copy(alpha = 0.3f))
+        StepItem("G-Code", Icons.Default.GridOn, GrayText, false)
     }
 }
 
 @Composable
 fun ProcessingStatusCard(progress: Float) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    GlassCard(
+        modifier = Modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier.padding(24.dp).fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(140.dp)) {
-                Canvas(modifier = Modifier.size(120.dp)) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(160.dp)) {
+                Canvas(modifier = Modifier.size(140.dp)) {
                     drawArc(
-                        color = Color(0xFFF5F5F5),
+                        color = Color.White.copy(alpha = 0.5f),
                         startAngle = 0f,
                         sweepAngle = 360f,
                         useCenter = false,
                         style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
                     )
                     drawArc(
-                        brush = Brush.sweepGradient(listOf(Orange, Pink, Orange)),
+                        brush = Brush.sweepGradient(listOf(VioletPrimary, TealAccent, VioletPrimary)),
                         startAngle = -90f,
                         sweepAngle = 360 * progress,
                         useCenter = false,
@@ -153,19 +165,20 @@ fun ProcessingStatusCard(progress: Float) {
                 }
                 Text(
                     text = "${(progress * 100).toInt()}%",
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
+                    fontSize = 36.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = DarkText
                 )
             }
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
             
-            Text(text = "Processing...", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text(text = "Edge Detection & Contours", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = DarkText)
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Converting image to GCode\nPlease wait a moment",
+                text = "Vectorizing kolam paths for CNC precision",
                 fontSize = 14.sp,
-                color = Color.Gray,
+                color = GrayText,
                 textAlign = TextAlign.Center,
                 lineHeight = 20.sp
             )
@@ -175,32 +188,30 @@ fun ProcessingStatusCard(progress: Float) {
 
 @Composable
 fun ConversionSettingsCard() {
-    var detailLevel by remember { mutableStateOf(0.7f) }
-    var lineSimplification by remember { mutableStateOf(0.5f) }
+    var detailLevel by remember { mutableStateOf(0.8f) }
+    var lineSimplification by remember { mutableStateOf(0.4f) }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    GlassCard(
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = "Conversion Settings", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(text = "Computer Vision Settings", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DarkText)
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
             
             SettingRow(
                 icon = Icons.Outlined.AutoFixHigh,
-                label = "Method",
+                label = "Algorithm",
                 content = {
                     Box(
                         modifier = Modifier
-                            .border(1.dp, Color.LightGray, RoundedCornerShape(8.dp))
+                            .background(Color.White.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
                             .padding(horizontal = 12.dp, vertical = 8.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Line Art", fontSize = 14.sp)
-                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = null)
+                            Text("Canny Edge", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = DarkText)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = VioletPrimary)
                         }
                     }
                 }
@@ -210,16 +221,16 @@ fun ConversionSettingsCard() {
             
             SettingRow(
                 icon = Icons.Outlined.Architecture,
-                label = "Detail Level",
+                label = "Edge Sensitivity",
                 content = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Slider(
                             value = detailLevel,
                             onValueChange = { detailLevel = it },
                             modifier = Modifier.weight(1f),
-                            colors = SliderDefaults.colors(thumbColor = Pink, activeTrackColor = Pink)
+                            colors = SliderDefaults.colors(thumbColor = VioletPrimary, activeTrackColor = VioletPrimary)
                         )
-                        Text(text = "${(detailLevel * 100).toInt()}%", fontSize = 12.sp, color = Pink, fontWeight = FontWeight.Bold, modifier = Modifier.width(40.dp), textAlign = TextAlign.End)
+                        Text(text = "${(detailLevel * 100).toInt()}%", fontSize = 12.sp, color = VioletPrimary, fontWeight = FontWeight.Bold, modifier = Modifier.width(40.dp), textAlign = TextAlign.End)
                     }
                 }
             )
@@ -228,16 +239,16 @@ fun ConversionSettingsCard() {
             
             SettingRow(
                 icon = Icons.Outlined.Timeline,
-                label = "Line Simplification",
+                label = "Noise Reduction",
                 content = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Slider(
                             value = lineSimplification,
                             onValueChange = { lineSimplification = it },
                             modifier = Modifier.weight(1f),
-                            colors = SliderDefaults.colors(thumbColor = Pink, activeTrackColor = Pink)
+                            colors = SliderDefaults.colors(thumbColor = VioletPrimary, activeTrackColor = VioletPrimary)
                         )
-                        Text(text = "${(lineSimplification * 100).toInt()}%", fontSize = 12.sp, color = Pink, fontWeight = FontWeight.Bold, modifier = Modifier.width(40.dp), textAlign = TextAlign.End)
+                        Text(text = "${(lineSimplification * 100).toInt()}%", fontSize = 12.sp, color = VioletPrimary, fontWeight = FontWeight.Bold, modifier = Modifier.width(40.dp), textAlign = TextAlign.End)
                     }
                 }
             )
@@ -245,10 +256,10 @@ fun ConversionSettingsCard() {
             Spacer(modifier = Modifier.height(16.dp))
             
             SettingRow(
-                icon = Icons.Outlined.AccessTime,
-                label = "Estimated Time",
+                icon = Icons.Outlined.Polyline,
+                label = "Path Extraction",
                 content = {
-                    Text(text = "~ 1 min", fontSize = 14.sp, color = Color.Gray)
+                    Text(text = "Active", fontSize = 14.sp, color = Color(0xFF34C759), fontWeight = FontWeight.Bold)
                 }
             )
         }
@@ -259,13 +270,13 @@ fun ConversionSettingsCard() {
 fun SettingRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, content: @Composable () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         Box(
-            modifier = Modifier.size(32.dp).background(Color(0xFFF5F0FF), CircleShape),
+            modifier = Modifier.size(36.dp).background(Color.White, RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(icon, contentDescription = null, tint = Color(0xFF7B4DFF), modifier = Modifier.size(18.dp))
+            Icon(icon, contentDescription = null, tint = VioletPrimary, modifier = Modifier.size(20.dp))
         }
         Spacer(modifier = Modifier.width(12.dp))
-        Text(text = label, fontSize = 14.sp, modifier = Modifier.weight(1f))
+        Text(text = label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = DarkText, modifier = Modifier.weight(1f))
         content()
     }
 }

@@ -12,9 +12,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -24,369 +25,369 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.simats.kolam.ui.theme.Orange
-import com.simats.kolam.ui.theme.Pink
+import com.simats.kolam.ui.components.GlassCard
+import com.simats.kolam.ui.theme.*
+import com.simats.kolam.viewmodel.KolamViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DevicesScreen(
+    viewModel: KolamViewModel,
     onNavigateToHome: () -> Unit,
     onNavigateToDesigns: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
+    val isConnected by viewModel.isConnected.collectAsState()
+    val connectionStatus by viewModel.connectionStatus.collectAsState()
+    val isDrawing by viewModel.isDrawing.collectAsState()
+    val drawingProgress by viewModel.drawingProgress.collectAsState()
+    val currentX by viewModel.currentX.collectAsState()
+    val currentY by viewModel.currentY.collectAsState()
+    val activeColor by viewModel.activeColor.collectAsState()
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        text = "Devices",
+                        text = "Machine Control",
                         style = TextStyle(
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
-                            brush = Brush.horizontalGradient(listOf(Orange, Pink))
+                            color = DarkText
                         )
                     )
                 },
-//                navigationIcon = {
-//                    IconButton(onClick = { }) {
-//                        Icon(Icons.Default.Menu, contentDescription = "Menu")
-//                    }
-//                },
                 actions = {
-                    IconButton(onClick = { }) {
-                        Icon(Icons.Outlined.HelpOutline, contentDescription = "Help")
+                    IconButton(
+                        onClick = { 
+                            if (isConnected) viewModel.disconnectDevice() else viewModel.connectDevice()
+                        },
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .background(Color.White.copy(alpha = 0.6f), CircleShape)
+                            .size(40.dp)
+                    ) {
+                        Icon(Icons.Outlined.Bluetooth, contentDescription = "Bluetooth", tint = if (isConnected) Color(0xFF34C759) else VioletPrimary)
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
             )
         },
-        bottomBar = { DevicesBottomNavigation(onNavigateToHome, onNavigateToDesigns, onNavigateToSettings) }
+        bottomBar = { DevicesBottomNavigation(onNavigateToHome, onNavigateToDesigns, onNavigateToSettings) },
+        containerColor = Color.Transparent
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .background(Color(0xFFFEF9FB))
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(BackgroundStart, BackgroundEnd)
+                    )
+                )
         ) {
-            Text(
-                text = "Connect and manage your RangoliBot device",
-                fontSize = 14.sp,
-                color = Color.Gray,
-                modifier = Modifier.padding(bottom = 20.dp)
+            Box(modifier = Modifier
+                .offset(x = 150.dp, y = (-50).dp)
+                .size(250.dp)
+                .background(VioletPrimary.copy(alpha = 0.15f), CircleShape)
+                .blur(70.dp)
             )
 
-            ConnectedDeviceCard()
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                ConnectedDeviceCard(
+                    isConnected = isConnected,
+                    connectionStatus = connectionStatus,
+                    isDrawing = isDrawing,
+                    onStart = { viewModel.startDrawing() },
+                    onStop = { viewModel.stopDrawing() },
+                    onConnect = { viewModel.connectDevice() }
+                )
 
-            Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                MachineStatusPanel(
+                    currentX = currentX,
+                    currentY = currentY,
+                    progress = drawingProgress
+                )
 
-            AvailableDevicesSection()
+                Spacer(modifier = Modifier.height(24.dp))
 
-            Spacer(modifier = Modifier.height(24.dp))
+                AxisControlPanel()
 
-            HowToConnectSection()
+                Spacer(modifier = Modifier.height(24.dp))
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            NeedHelpCard()
-            
-            Spacer(modifier = Modifier.height(20.dp))
+                ColorSelectionPanel(activeColor = activeColor)
+                
+                Spacer(modifier = Modifier.height(30.dp))
+            }
         }
     }
 }
 
 @Composable
-fun ConnectedDeviceCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+fun ConnectedDeviceCard(
+    isConnected: Boolean, 
+    connectionStatus: String,
+    isDrawing: Boolean,
+    onStart: () -> Unit,
+    onStop: () -> Unit,
+    onConnect: () -> Unit
+) {
+    GlassCard(
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(8.dp).background(Color(0xFF2DCC70), CircleShape))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = "Connected", fontSize = 12.sp, color = Color(0xFF2DCC70), fontWeight = FontWeight.Medium)
-                }
+                Box(modifier = Modifier.size(10.dp).background(if (isConnected) Color(0xFF34C759) else Color.Gray, CircleShape))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = connectionStatus, fontSize = 13.sp, color = if (isConnected) Color(0xFF34C759) else Color.Gray, fontWeight = FontWeight.Bold)
             }
             
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
-                        .size(100.dp)
-                        .background(Color(0xFFF6FFF9), RoundedCornerShape(20.dp))
-                        .padding(12.dp),
+                        .size(80.dp)
+                        .background(Color.White.copy(alpha = 0.7f), RoundedCornerShape(20.dp))
+                        .padding(16.dp)
+                        .clickable { if (!isConnected) onConnect() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.PrecisionManufacturing,
                         contentDescription = null,
-                        modifier = Modifier.size(60.dp),
-                        tint = Orange.copy(alpha = 0.7f)
+                        modifier = Modifier.fillMaxSize(),
+                        tint = VioletPrimary
                     )
                 }
                 
                 Spacer(modifier = Modifier.width(16.dp))
                 
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = "RangoliBot X1", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Bluetooth, contentDescription = null, tint = Color(0xFF2DCC70), modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = "Connected via Bluetooth", fontSize = 11.sp, color = Color(0xFF2DCC70))
-                    }
-                    Text(text = "Serial: RBX1-2487", fontSize = 11.sp, color = Color.Gray)
-                    Text(text = "Firmware: v2.1.4", fontSize = 11.sp, color = Color.Gray)
-                }
-                
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = "100%", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(Icons.Default.BatteryFull, contentDescription = null, tint = Color(0xFF2DCC70), modifier = Modifier.size(20.dp))
-                    Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.LightGray)
+                    Text(text = "RangoliBot Pro X1", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = DarkText)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(text = "ESP32 CNC Controller", fontSize = 13.sp, color = GrayText)
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(text = if (isConnected) "Signal: -65 dBm | 100% Bat" else "Not Paired", fontSize = 12.sp, color = VioletSecondary, fontWeight = FontWeight.Medium)
                 }
             }
             
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(24.dp))
             
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                DeviceActionItem(Icons.Outlined.Info, "Device Info")
-                DeviceActionItem(Icons.Outlined.Edit, "Test Draw")
-                DeviceActionItem(Icons.Outlined.GpsFixed, "Calibrate")
-                DeviceActionItem(Icons.Outlined.Settings, "Settings")
+                DeviceActionItem(Icons.Default.PlayArrow, if(isDrawing) "Drawing" else "Start", Color(0xFF34C759), onClick = onStart)
+                DeviceActionItem(Icons.Default.Pause, "Pause", Color(0xFFFF9F0A), onClick = onStop)
+                DeviceActionItem(Icons.Default.Stop, "E-Stop", Color(0xFFFF3B30), onClick = onStop)
+                DeviceActionItem(Icons.Default.Home, "Home Pos", VioletPrimary, onClick = {})
             }
         }
     }
 }
 
 @Composable
-fun DeviceActionItem(icon: ImageVector, label: String) {
+fun DeviceActionItem(icon: ImageVector, label: String, color: Color, onClick: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .border(1.dp, Color(0xFFF5F5F5), RoundedCornerShape(12.dp))
+            .background(Color.White.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+            .clickable { onClick() }
             .padding(vertical = 12.dp, horizontal = 16.dp)
+            .width(60.dp)
     ) {
-        Icon(icon, contentDescription = null, tint = Color(0xFF7B4DFF), modifier = Modifier.size(20.dp))
+        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
         Spacer(modifier = Modifier.height(8.dp))
-        Text(text = label, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+        Text(text = label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = DarkText)
     }
 }
 
 @Composable
-fun AvailableDevicesSection() {
-    Column {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(text = "Available Devices", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { }) {
-                Icon(Icons.Default.Refresh, contentDescription = null, tint = Pink, modifier = Modifier.size(14.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(text = "Scan for Devices", fontSize = 12.sp, color = Pink, fontWeight = FontWeight.Medium)
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .background(Color(0xFFFFF0F5), RoundedCornerShape(16.dp))
-                        .padding(12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.SmartToy,
-                        contentDescription = null,
-                        modifier = Modifier.size(40.dp),
-                        tint = Orange.copy(alpha = 0.7f)
-                    )
-                }
-                
-                Spacer(modifier = Modifier.width(16.dp))
-                
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(text = "RangoliBot Mini", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.BluetoothDisabled, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = "Not Connected", fontSize = 11.sp, color = Color.Gray)
-                    }
-                    Text(text = "Serial: RBM-1032", fontSize = 11.sp, color = Color.Gray)
-                }
-                
-                OutlinedButton(
-                    onClick = { },
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Pink),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Pink.copy(alpha = 0.3f)),
-                    contentPadding = PaddingValues(horizontal = 16.dp)
-                ) {
-                    Text(text = "Connect", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.LightGray)
-            }
-        }
-    }
-}
-
-@Composable
-fun HowToConnectSection() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = "How to Connect", fontSize = 15.sp, fontWeight = FontWeight.Bold)
-            
-            Spacer(modifier = Modifier.height(20.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                ConnectStep(1, Icons.Default.Bluetooth, "Turn on\nBluetooth", Color(0xFFF0E8FF), Color(0xFF7B4DFF))
-                StepConnector()
-                ConnectStep(2, Icons.Default.SmartToy, "Power on\nyour RangoliBot", Color(0xFFFFF2E8), Color(0xFFFF9248))
-                StepConnector()
-                ConnectStep(3, Icons.Default.Search, "Select your device\nfrom the list", Color(0xFFFFE8EC), Color(0xFFFF4D6D))
-                StepConnector()
-                ConnectStep(4, Icons.Default.CheckCircle, "Connected!\nStart creating", Color(0xFFE8F9F0), Color(0xFF2DCC70))
-            }
-        }
-    }
-}
-
-@Composable
-fun ConnectStep(index: Int, icon: ImageVector, label: String, bg: Color, tint: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(70.dp)) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .background(bg, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
-        }
+fun MachineStatusPanel(currentX: Float, currentY: Float, progress: Float) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(text = "Live Telemetry", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DarkText, modifier = Modifier.padding(start = 4.dp))
         Spacer(modifier = Modifier.height(12.dp))
-        Row(verticalAlignment = Alignment.Top) {
-            Box(modifier = Modifier.size(16.dp).background(tint, CircleShape), contentAlignment = Alignment.Center) {
-                Text(text = index.toString(), color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-            }
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(text = label, fontSize = 9.sp, lineHeight = 12.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Start)
+        
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            TelemetryCard(title = "X Axis", value = String.format("%.1f", currentX), unit = "mm", modifier = Modifier.weight(1f))
+            TelemetryCard(title = "Y Axis", value = String.format("%.1f", currentY), unit = "mm", modifier = Modifier.weight(1f))
+            TelemetryCard(title = "Progress", value = "${(progress * 100).toInt()}", unit = "%", modifier = Modifier.weight(1f))
         }
     }
 }
 
 @Composable
-fun StepConnector() {
-    Box(modifier = Modifier.height(40.dp), contentAlignment = Alignment.Center) {
-        Text(text = "...", color = Color.LightGray)
-    }
-}
-
-@Composable
-fun NeedHelpCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF9FA)),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Pink.copy(alpha = 0.05f))
-    ) {
-        Row(
+fun TelemetryCard(title: String, value: String, unit: String, modifier: Modifier = Modifier) {
+    GlassCard(modifier = modifier) {
+        Column(
             modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(Color(0xFFFFE8EC), RoundedCornerShape(12.dp)),
-                contentAlignment = Alignment.Center
+            Text(text = title, fontSize = 12.sp, color = GrayText, fontWeight = FontWeight.Medium)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = value, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = DarkText)
+            Text(text = unit, fontSize = 10.sp, color = VioletPrimary, fontWeight = FontWeight.Medium)
+        }
+    }
+}
+
+@Composable
+fun AxisControlPanel() {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(text = "Manual Jog Controls", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DarkText, modifier = Modifier.padding(start = 4.dp))
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(Icons.Default.Description, contentDescription = null, tint = Pink)
-            }
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = "Need Help?", fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                Text(text = "View user manual or watch video tutorials", fontSize = 11.sp, color = Color.Gray)
-            }
-            
-            OutlinedButton(
-                onClick = { },
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Pink),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Pink.copy(alpha = 0.3f)),
-                contentPadding = PaddingValues(horizontal = 16.dp)
-            ) {
-                Text(text = "Learn More", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                // Y+
+                JogButton(icon = Icons.Default.KeyboardArrowUp, label = "Y+")
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // X-
+                    JogButton(icon = Icons.Default.KeyboardArrowLeft, label = "X-")
+                    
+                    Spacer(modifier = Modifier.width(32.dp))
+                    
+                    Box(
+                        modifier = Modifier
+                            .size(60.dp)
+                            .background(Brush.radialGradient(listOf(Color.White, Color.White.copy(alpha = 0.5f))), CircleShape)
+                            .border(2.dp, VioletPrimary.copy(alpha = 0.3f), CircleShape)
+                            .clickable { },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Reset", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = VioletPrimary)
+                    }
+                    
+                    Spacer(modifier = Modifier.width(32.dp))
+                    
+                    // X+
+                    JogButton(icon = Icons.Default.KeyboardArrowRight, label = "X+")
+                }
+                
+                // Y-
+                JogButton(icon = Icons.Default.KeyboardArrowDown, label = "Y-")
             }
         }
+    }
+}
+
+@Composable
+fun JogButton(icon: ImageVector, label: String) {
+    Box(
+        modifier = Modifier
+            .size(70.dp)
+            .background(Color.White.copy(alpha = 0.8f), RoundedCornerShape(20.dp))
+            .border(1.dp, VioletPrimary.copy(alpha = 0.1f), RoundedCornerShape(20.dp))
+            .clickable { },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(icon, contentDescription = null, tint = DarkText, modifier = Modifier.size(32.dp))
+            Text(text = label, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = VioletPrimary)
+        }
+    }
+}
+
+@Composable
+fun ColorSelectionPanel(activeColor: String) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(text = "Z-Axis Tool Status", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DarkText, modifier = Modifier.padding(start = 4.dp))
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.padding(20.dp).fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                ToolButton("Z1", "Red", Color(0xFFFF3B30), activeColor.contains("Z1"))
+                ToolButton("Z2", "Yellow", Color(0xFFFFCC00), activeColor.contains("Z2"))
+                ToolButton("Z3", "Blue", Color(0xFF007AFF), activeColor.contains("Z3"))
+            }
+        }
+    }
+}
+
+@Composable
+fun ToolButton(axis: String, colorName: String, color: Color, isSelected: Boolean) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .background(if(isSelected) color.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+            .border(2.dp, if(isSelected) color else Color.Transparent, RoundedCornerShape(16.dp))
+            .padding(16.dp)
+            .width(70.dp)
+    ) {
+        Box(modifier = Modifier.size(24.dp).background(color, CircleShape))
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(text = axis, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = DarkText)
+        Text(text = colorName, fontSize = 11.sp, color = GrayText, fontWeight = FontWeight.Medium)
     }
 }
 
 @Composable
 fun DevicesBottomNavigation(onHomeClick: () -> Unit, onDesignsClick: () -> Unit, onSettingsClick: () -> Unit) {
     NavigationBar(
-        containerColor = Color.White,
-        tonalElevation = 8.dp
+        containerColor = Color.White.copy(alpha = 0.8f),
+        tonalElevation = 0.dp,
+        modifier = Modifier.background(Color.White.copy(alpha = 0.9f))
     ) {
         NavigationBarItem(
             selected = false,
             onClick = onHomeClick,
-            icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-            label = { Text("Home") }
+            icon = { Icon(Icons.Outlined.Home, contentDescription = "Home") },
+            label = { Text("Home", fontWeight = FontWeight.Medium) },
+            colors = NavigationBarItemDefaults.colors(
+                unselectedIconColor = GrayText,
+                unselectedTextColor = GrayText
+            )
         )
         NavigationBarItem(
             selected = false,
             onClick = onDesignsClick,
-            icon = { Icon(Icons.Default.Folder, contentDescription = "Designs") },
-            label = { Text("Designs") }
+            icon = { Icon(Icons.Outlined.Folder, contentDescription = "Designs") },
+            label = { Text("Designs", fontWeight = FontWeight.Medium) },
+            colors = NavigationBarItemDefaults.colors(
+                unselectedIconColor = GrayText,
+                unselectedTextColor = GrayText
+            )
         )
         NavigationBarItem(
             selected = true,
             onClick = { },
-            icon = { Icon(Icons.Default.SmartToy, contentDescription = "Devices") },
-            label = { Text("Devices") },
+            icon = { Icon(Icons.Default.Bluetooth, contentDescription = "Devices") },
+            label = { Text("Devices", fontWeight = FontWeight.Medium) },
             colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = Pink,
-                selectedTextColor = Pink,
-                unselectedIconColor = Color.Gray,
-                unselectedTextColor = Color.Gray,
-                indicatorColor = Color.Transparent
+                selectedIconColor = VioletPrimary,
+                selectedTextColor = VioletPrimary,
+                unselectedIconColor = GrayText,
+                unselectedTextColor = GrayText,
+                indicatorColor = VioletPrimary.copy(alpha = 0.1f)
             )
         )
         NavigationBarItem(
             selected = false,
             onClick = onSettingsClick,
-            icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-            label = { Text("Settings") }
+            icon = { Icon(Icons.Outlined.Settings, contentDescription = "Settings") },
+            label = { Text("Settings", fontWeight = FontWeight.Medium) },
+            colors = NavigationBarItemDefaults.colors(
+                unselectedIconColor = GrayText,
+                unselectedTextColor = GrayText
+            )
         )
     }
 }

@@ -1,10 +1,12 @@
 package com.simats.kolam.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.simats.kolam.ui.screens.*
+import com.simats.kolam.viewmodel.KolamViewModel
 
 sealed class Screen(val route: String) {
     object Splash : Screen("splash")
@@ -22,12 +24,14 @@ sealed class Screen(val route: String) {
 
 @Composable
 fun AppNavGraph(navController: NavHostController) {
+    val sharedViewModel: KolamViewModel = viewModel()
+
     NavHost(
         navController = navController,
         startDestination = Screen.Splash.route
     ) {
         composable(Screen.Splash.route) {
-            SplashScreen(onTimeout = {
+            SplashScreen(onSplashFinished = {
                 navController.navigate(Screen.Login.route) {
                     popUpTo(Screen.Splash.route) { inclusive = true }
                 }
@@ -35,6 +39,7 @@ fun AppNavGraph(navController: NavHostController) {
         }
         composable(Screen.Login.route) {
             LoginScreen(
+                viewModel = sharedViewModel,
                 onNavigateToSignup = { navController.navigate(Screen.Signup.route) },
                 onLoginSuccess = {
                     navController.navigate(Screen.Home.route) {
@@ -45,6 +50,7 @@ fun AppNavGraph(navController: NavHostController) {
         }
         composable(Screen.Signup.route) {
             SignupScreen(
+                viewModel = sharedViewModel,
                 onNavigateToLogin = { navController.navigate(Screen.Login.route) },
                 onSignupSuccess = {
                     navController.navigate(Screen.Home.route) {
@@ -55,6 +61,7 @@ fun AppNavGraph(navController: NavHostController) {
         }
         composable(Screen.Home.route) {
             HomeScreen(
+                viewModel = sharedViewModel,
                 onNavigateToUpload = { navController.navigate(Screen.UploadImage.route) },
                 onNavigateToDesigns = { navController.navigate(Screen.Designs.route) },
                 onNavigateToDevices = { navController.navigate(Screen.Devices.route) },
@@ -63,7 +70,6 @@ fun AppNavGraph(navController: NavHostController) {
         }
         composable(Screen.Designs.route) {
             DesignsScreen(
-                onBackClick = { navController.popBackStack() },
                 onNavigateToHome = {
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Home.route) { inclusive = true }
@@ -75,6 +81,7 @@ fun AppNavGraph(navController: NavHostController) {
         }
         composable(Screen.Devices.route) {
             DevicesScreen(
+                viewModel = sharedViewModel,
                 onNavigateToHome = {
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Home.route) { inclusive = true }
@@ -86,35 +93,35 @@ fun AppNavGraph(navController: NavHostController) {
         }
         composable(Screen.Settings.route) {
             SettingsScreen(
-                onBackClick = { navController.popBackStack() },
                 onNavigateToHome = {
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Home.route) { inclusive = true }
                     }
                 },
                 onNavigateToDesigns = { navController.navigate(Screen.Designs.route) },
-                onNavigateToDevices = { navController.navigate(Screen.Devices.route) },
-                onLogout = {
-                    navController.navigate(Screen.Login.route) {
-                        popUpTo(0) { inclusive = true }
-                    }
-                }
+                onNavigateToDevices = { navController.navigate(Screen.Devices.route) }
             )
         }
         composable(Screen.UploadImage.route) {
             UploadImageScreen(
+                viewModel = sharedViewModel,
                 onBackClick = { navController.popBackStack() },
                 onContinueClick = { navController.navigate(Screen.ImageToGCode.route) }
             )
         }
         composable(Screen.ImageToGCode.route) {
             ImageToGCodeScreen(
+                viewModel = sharedViewModel,
                 onBackClick = { navController.popBackStack() },
-                onContinueClick = { navController.navigate(Screen.GCodePreview.route) }
+                onContinueClick = { 
+                    sharedViewModel.generateGCode()
+                    navController.navigate(Screen.GCodePreview.route) 
+                }
             )
         }
         composable(Screen.GCodePreview.route) {
             GCodePreviewScreen(
+                viewModel = sharedViewModel,
                 onBackClick = { navController.popBackStack() },
                 onContinueClick = { navController.navigate(Screen.SetColors.route) }
             )
@@ -122,7 +129,7 @@ fun AppNavGraph(navController: NavHostController) {
         composable(Screen.SetColors.route) {
             SetColorsScreen(
                 onBackClick = { navController.popBackStack() },
-                onContinueClick = { /* Next: Connect Device */ }
+                onContinueClick = { navController.navigate(Screen.Devices.route) }
             )
         }
     }
