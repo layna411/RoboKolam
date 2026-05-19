@@ -24,4 +24,10 @@ interface KolamApiService {
         @Part image: MultipartBody.Part,
         @Part("user_id") userId: RequestBody
     ): Response<UploadResponse>
+
+    @POST("process_image")
+    suspend fun processImage(@Body request: com.simats.kolam.models.GCodeRequest): Response<com.simats.kolam.models.GCodeResponse>
+
+    @retrofit2.http.GET("images/{user_id}")
+    suspend fun getUserImages(@retrofit2.http.Path("user_id") userId: Int): Response<com.simats.kolam.models.ImagesResponse>
 }

@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import com.simats.kolam.ui.components.GlassCard
 import com.simats.kolam.ui.components.GradientButton
 import com.simats.kolam.ui.theme.*
+import com.simats.kolam.models.ImageRecord
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,6 +45,7 @@ fun UploadImageScreen(
     onContinueClick: () -> Unit
 ) {
     val selectedImageUri by viewModel.selectedImageUri.collectAsState()
+    val userImages by viewModel.userImages.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
     
     val launcher = rememberLauncherForActivityResult(
@@ -109,7 +111,7 @@ fun UploadImageScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                RecentImagesSection()
+                RecentImagesSection(userImages)
 
                 Spacer(modifier = Modifier.height(32.dp))
 
@@ -117,10 +119,12 @@ fun UploadImageScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                GradientButton(
-                    text = "Continue to Processing",
-                    onClick = onContinueClick
-                )
+                if (selectedImageUri != null) {
+                    GradientButton(
+                        text = "Continue to Processing",
+                        onClick = onContinueClick
+                    )
+                }
                 
                 Spacer(modifier = Modifier.height(30.dp))
             }
@@ -215,7 +219,7 @@ fun UploadArea(selectedImageUri: android.net.Uri?, onPickImage: () -> Unit) {
 }
 
 @Composable
-fun RecentImagesSection() {
+fun RecentImagesSection(images: List<ImageRecord>) {
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -226,41 +230,31 @@ fun RecentImagesSection() {
             Text(text = "See All", fontSize = 14.sp, color = VioletPrimary, fontWeight = FontWeight.Medium)
         }
         Spacer(modifier = Modifier.height(16.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            items(3) { index ->
-                RecentImageItem()
+        if (images.isEmpty()) {
+            Text("No recent images uploaded", color = GrayText, modifier = Modifier.padding(start = 8.dp))
+        } else {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                items(images.size) { index ->
+                    RecentImageItem(images[index])
+                }
             }
         }
     }
 }
 
 @Composable
-fun RecentImageItem() {
+fun RecentImageItem(img: ImageRecord) {
+    val fullUrl = "http://10.0.2.2:5000${img.url}"
     GlassCard(
         modifier = Modifier.size(110.dp)
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(12.dp)
-                    .background(
-                        brush = Brush.sweepGradient(listOf(VioletPrimary, TealAccent, BlueAccent, VioletPrimary)),
-                        shape = CircleShape
-                    )
+        Box(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+            AsyncImage(
+                model = fullUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp))
             )
-            
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(8.dp)
-                    .size(24.dp)
-                    .background(Color.White.copy(alpha = 0.8f), CircleShape)
-                    .clickable { },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.Close, contentDescription = null, tint = DarkText, modifier = Modifier.size(14.dp))
-            }
         }
     }
 }

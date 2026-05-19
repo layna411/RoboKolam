@@ -25,3 +25,30 @@ data class UploadResponse(
     val image_id: Int? = null,
     val path: String? = null
 )
+
+data class GCodeRequest(
+    val image_id: Int,
+    val sensitivity: Float? = null,
+    val noise_reduction: Float? = null,
+    val algorithm: String? = null
+)
+
+data class GCodeResponse(
+    val success: Boolean,
+    val message: String? = null,
+    val gcode: String? = null
+)
+
+data class ImageRecord(
+    val id: Int,
+    val filename: String,
+    val status: String,
+    val created_at: String,
+    val url: String
+)
+
+data class ImagesResponse(
+    val success: Boolean,
+    val images: List<ImageRecord>? = null,
+    val message: String? = null
+)

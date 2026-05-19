@@ -21,15 +21,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.simats.kolam.ui.components.GlassCard
+import com.simats.kolam.ui.components.GlassCard
 import com.simats.kolam.ui.theme.*
+import com.simats.kolam.viewmodel.KolamViewModel
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    viewModel: KolamViewModel,
     onNavigateToHome: () -> Unit,
     onNavigateToDesigns: () -> Unit,
-    onNavigateToDevices: () -> Unit
+    onNavigateToDevices: () -> Unit,
+    onNavigateToLogin: () -> Unit
 ) {
+    val currentUser by viewModel.currentUser.collectAsState()
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -85,14 +92,19 @@ fun SettingsScreen(
                                 .background(Brush.linearGradient(listOf(VioletPrimary, VioletSecondary)), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(text = "A", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text(
+                                text = currentUser?.username?.firstOrNull()?.uppercase() ?: "A",
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
                         }
                         
                         Spacer(modifier = Modifier.width(16.dp))
                         
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(text = "Ananya", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = DarkText)
-                            Text(text = "ananya@example.com", fontSize = 13.sp, color = GrayText)
+                            Text(text = currentUser?.username ?: "Creator", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = DarkText)
+                            Text(text = currentUser?.email ?: "Not logged in", fontSize = 13.sp, color = GrayText)
                         }
                         
                         Icon(Icons.Default.ChevronRight, contentDescription = null, tint = GrayText)
@@ -133,7 +145,10 @@ fun SettingsScreen(
 
                 Spacer(modifier = Modifier.height(30.dp))
                 
-                TextButton(onClick = { }) {
+                TextButton(onClick = { 
+                    viewModel.logout()
+                    onNavigateToLogin()
+                }) {
                     Text(text = "Log Out", color = Color(0xFFFF3B30), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
                 

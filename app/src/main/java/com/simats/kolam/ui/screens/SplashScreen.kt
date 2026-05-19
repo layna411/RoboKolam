@@ -22,11 +22,20 @@ import androidx.compose.ui.unit.sp
 import com.simats.kolam.ui.theme.*
 import kotlinx.coroutines.delay
 
+import com.simats.kolam.viewmodel.KolamViewModel
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+
 @Composable
-fun SplashScreen(onSplashFinished: () -> Unit) {
+fun SplashScreen(
+    viewModel: KolamViewModel,
+    onSplashFinished: (Boolean) -> Unit
+) {
+    val currentUser by viewModel.currentUser.collectAsState()
+
     LaunchedEffect(key1 = true) {
         delay(2000)
-        onSplashFinished()
+        onSplashFinished(currentUser != null)
     }
 
     Box(

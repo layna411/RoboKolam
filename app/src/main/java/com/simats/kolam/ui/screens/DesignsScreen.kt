@@ -12,22 +12,32 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import com.simats.kolam.ui.components.GlassCard
 import com.simats.kolam.ui.theme.*
+import com.simats.kolam.viewmodel.KolamViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DesignsScreen(
+    viewModel: KolamViewModel,
     onNavigateToHome: () -> Unit,
     onNavigateToDevices: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
+    val userImages by viewModel.userImages.collectAsState()
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -78,38 +88,40 @@ fun DesignsScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp, vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Simplified design list for rewrite
-                GlassCard(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(modifier = Modifier.size(50.dp).background(Color.White, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Outlined.AutoAwesome, contentDescription = null, tint = VioletPrimary)
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(text = "Festival Kolam", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DarkText)
-                            Text(text = "3 Colors • 12,500 lines", fontSize = 12.sp, color = GrayText)
-                        }
-                        IconButton(onClick = {}) {
-                            Icon(Icons.Default.MoreVert, contentDescription = null, tint = DarkText)
-                        }
-                    }
-                }
-                
-                GlassCard(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(modifier = Modifier.size(50.dp).background(Color.White, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Outlined.AutoAwesome, contentDescription = null, tint = BlueAccent)
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(text = "Daily Pooja", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DarkText)
-                            Text(text = "2 Colors • 4,200 lines", fontSize = 12.sp, color = GrayText)
-                        }
-                        IconButton(onClick = {}) {
-                            Icon(Icons.Default.MoreVert, contentDescription = null, tint = DarkText)
+                if (userImages.isEmpty()) {
+                    Text("No designs found", color = GrayText, modifier = Modifier.padding(16.dp))
+                } else {
+                    userImages.forEach { img ->
+                        val fullUrl = "http://10.0.2.2:5000${img.url}"
+                        GlassCard(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+                            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(50.dp)
+                                        .background(Color.White, RoundedCornerShape(12.dp))
+                                        .clip(RoundedCornerShape(12.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    AsyncImage(
+                                        model = fullUrl,
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(text = img.filename, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DarkText, maxLines = 1)
+                                    Text(text = "Status: ${img.status}", fontSize = 12.sp, color = GrayText)
+                                }
+                                IconButton(onClick = {}) {
+                                    Icon(Icons.Default.MoreVert, contentDescription = null, tint = DarkText)
+                                }
+                            }
                         }
                     }
                 }

@@ -18,8 +18,33 @@ import java.io.File
 import android.content.Context
 import java.io.FileOutputStream
 import com.simats.kolam.models.User
+import com.simats.kolam.models.ImageRecord
+import com.google.gson.Gson
 
 class KolamViewModel : ViewModel() {
+    private val gson = Gson()
+    private var sharedPrefs: android.content.SharedPreferences? = null
+
+    fun initPrefs(context: Context) {
+        sharedPrefs = context.getSharedPreferences("kolam_prefs", Context.MODE_PRIVATE)
+        loadUser()
+    }
+
+    private fun saveUser(user: User) {
+        sharedPrefs?.edit()?.putString("user_data", gson.toJson(user))?.apply()
+    }
+
+    private fun loadUser() {
+        val userData = sharedPrefs?.getString("user_data", null)
+        if (userData != null) {
+            _currentUser.value = gson.fromJson(userData, User::class.java)
+            fetchUserImages()
+        }
+    }
+
+    private fun clearUser() {
+        sharedPrefs?.edit()?.remove("user_data")?.apply()
+    }
 
     // --- Auth State ---
     private val _authState = MutableStateFlow<String?>(null)
@@ -27,9 +52,35 @@ class KolamViewModel : ViewModel() {
     
     private val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
+    
+    private val _userImages = MutableStateFlow<List<ImageRecord>>(emptyList())
+    val userImages: StateFlow<List<ImageRecord>> = _userImages.asStateFlow()
 
     fun resetAuth() {
         _authState.value = null
+    }
+    
+    fun logout() {
+        _currentUser.value = null
+        _authState.value = null
+        _userImages.value = emptyList()
+        _selectedImageUri.value = null
+        uploadedImageId = null
+        clearUser()
+    }
+
+    fun fetchUserImages() {
+        viewModelScope.launch {
+            val userId = _currentUser.value?.id ?: return@launch
+            try {
+                val response = RetrofitClient.apiService.getUserImages(userId)
+                if (response.isSuccessful && response.body()?.success == true) {
+                    _userImages.value = response.body()?.images ?: emptyList()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     fun signup(username: String, email: String, pass: String) {
@@ -38,8 +89,11 @@ class KolamViewModel : ViewModel() {
                 val req = AuthRequest(username = username, email = email, password = pass)
                 val response = RetrofitClient.apiService.signup(req)
                 if (response.isSuccessful && response.body()?.success == true) {
-                    _currentUser.value = User(id = response.body()?.user_id ?: 0, username = username, email = email)
+                    val user = User(id = response.body()?.user_id ?: 0, username = username, email = email)
+                    _currentUser.value = user
+                    saveUser(user)
                     _authState.value = "Signup Success"
+                    fetchUserImages()
                 } else {
                     _authState.value = "Error: ${response.body()?.message}"
                 }
@@ -56,7 +110,9 @@ class KolamViewModel : ViewModel() {
                 val response = RetrofitClient.apiService.login(req)
                 if (response.isSuccessful && response.body()?.success == true) {
                     _currentUser.value = response.body()?.user
+                    response.body()?.user?.let { saveUser(it) }
                     _authState.value = "Login Success"
+                    fetchUserImages()
                 } else {
                     _authState.value = "Error: ${response.body()?.message}"
                 }
@@ -69,6 +125,8 @@ class KolamViewModel : ViewModel() {
     // --- Upload Image State ---
     private val _selectedImageUri = MutableStateFlow<Uri?>(null)
     val selectedImageUri: StateFlow<Uri?> = _selectedImageUri.asStateFlow()
+    
+    private var uploadedImageId: Int? = null
 
     fun setSelectedImage(uri: Uri?, context: Context? = null) {
         _selectedImageUri.value = uri
@@ -89,11 +147,13 @@ class KolamViewModel : ViewModel() {
                 
                 val reqFile = tempFile.asRequestBody("image/*".toMediaTypeOrNull())
                 val body = MultipartBody.Part.createFormData("image", tempFile.name, reqFile)
-                val userIdBody = "1".toRequestBody("text/plain".toMediaTypeOrNull())
+                val userIdBody = (_currentUser.value?.id ?: 1).toString().toRequestBody("text/plain".toMediaTypeOrNull())
                 
                 val response = RetrofitClient.apiService.uploadImage(body, userIdBody)
                 if (response.isSuccessful && response.body()?.success == true) {
+                    uploadedImageId = response.body()?.image_id
                     println("Upload successful: ${response.body()?.path}")
+                    fetchUserImages()
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -107,15 +167,55 @@ class KolamViewModel : ViewModel() {
 
     private val _isProcessingComplete = MutableStateFlow(false)
     val isProcessingComplete: StateFlow<Boolean> = _isProcessingComplete.asStateFlow()
+    
+    private val _sensitivity = MutableStateFlow(0.8f)
+    val sensitivity: StateFlow<Float> = _sensitivity.asStateFlow()
+
+    private val _noiseReduction = MutableStateFlow(0.4f)
+    val noiseReduction: StateFlow<Float> = _noiseReduction.asStateFlow()
+
+    private val _algorithm = MutableStateFlow("Canny Edge")
+    val algorithm: StateFlow<String> = _algorithm.asStateFlow()
+
+    fun updateSettings(sens: Float, noise: Float, algo: String = _algorithm.value) {
+        _sensitivity.value = sens
+        _noiseReduction.value = noise
+        _algorithm.value = algo
+    }
 
     fun startProcessing() {
         viewModelScope.launch {
             _processingProgress.value = 0f
             _isProcessingComplete.value = false
-            for (i in 1..100) {
-                delay(30) // Simulate processing time
-                _processingProgress.value = i / 100f
+            
+            if (uploadedImageId == null) {
+                _generatedGCode.value = "; No image uploaded"
+                _processingProgress.value = 1f
+                _isProcessingComplete.value = true
+                return@launch
             }
+            
+            try {
+                _processingProgress.value = 0.5f // Halfway there...
+                
+                val req = com.simats.kolam.models.GCodeRequest(
+                    image_id = uploadedImageId!!,
+                    sensitivity = _sensitivity.value,
+                    noise_reduction = _noiseReduction.value,
+                    algorithm = _algorithm.value
+                )
+                val response = RetrofitClient.apiService.processImage(req)
+                
+                if (response.isSuccessful && response.body()?.success == true) {
+                    _generatedGCode.value = response.body()?.gcode ?: "; Empty GCode"
+                } else {
+                    _generatedGCode.value = "; Error processing image"
+                }
+            } catch (e: Exception) {
+                _generatedGCode.value = "; API Error: ${e.message}"
+            }
+            
+            _processingProgress.value = 1f
             _isProcessingComplete.value = true
         }
     }
@@ -125,36 +225,8 @@ class KolamViewModel : ViewModel() {
     val generatedGCode: StateFlow<String> = _generatedGCode.asStateFlow()
 
     fun generateGCode() {
-        val dummyGCode = """
-            ; Smart Rangoli Generator
-            G21 ; Set units to mm
-            G90 ; Absolute positioning
-            G28 ; Auto-Home X, Y
-
-            ; Layer 1 - Red
-            Z1 ; Select Color 1
-            G0 X50 Y50 F1500
-            G1 X60 Y60 F800
-            G1 X70 Y50
-            G1 X50 Y50
-
-            ; Layer 2 - Yellow
-            Z2 ; Select Color 2
-            G0 X100 Y100 F1500
-            G1 X110 Y110 F800
-            G1 X120 Y100
-            G1 X100 Y100
-            
-            ; Layer 3 - Blue
-            Z3 ; Select Color 3
-            G0 X150 Y150 F1500
-            G1 X160 Y160 F800
-            G1 X170 Y150
-            G1 X150 Y150
-            
-            G28 ; Home
-        """.trimIndent()
-        _generatedGCode.value = dummyGCode
+        // GCode is now generated by the backend during startProcessing().
+        // No op needed here.
     }
 
     // --- Bluetooth State ---

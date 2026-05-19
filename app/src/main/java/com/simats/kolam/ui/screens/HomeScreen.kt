@@ -16,6 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+
+
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -25,7 +27,10 @@ import androidx.compose.ui.unit.sp
 import com.simats.kolam.ui.components.GlassCard
 import com.simats.kolam.ui.theme.*
 
+import coil.compose.AsyncImage
 import com.simats.kolam.viewmodel.KolamViewModel
+import com.simats.kolam.models.ImageRecord
+import androidx.compose.ui.layout.ContentScale
 
 @Composable
 fun HomeScreen(
@@ -37,6 +42,7 @@ fun HomeScreen(
 ) {
     val isConnected by viewModel.isConnected.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
+    val userImages by viewModel.userImages.collectAsState()
     
     Scaffold(
         topBar = { HomeTopBar() },
@@ -104,7 +110,7 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                RecentDesignsSection()
+                RecentDesignsSection(userImages)
 
                 Spacer(modifier = Modifier.height(32.dp))
 
@@ -237,7 +243,7 @@ fun SecondaryActionCard(
 }
 
 @Composable
-fun RecentDesignsSection() {
+fun RecentDesignsSection(images: List<ImageRecord>) {
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -252,18 +258,24 @@ fun RecentDesignsSection() {
         
         GlassCard {
             Column(modifier = Modifier.padding(16.dp)) {
-                DesignItem("Festival Rangoli", "12,842 lines  •  3 Colors", "Today", VioletPrimary)
-                HorizontalDivider(color = Color.White.copy(alpha = 0.3f), modifier = Modifier.padding(vertical = 12.dp))
-                DesignItem("Simple Kolam", "8,156 lines  •  2 Colors", "Yesterday", BlueAccent)
-                HorizontalDivider(color = Color.White.copy(alpha = 0.3f), modifier = Modifier.padding(vertical = 12.dp))
-                DesignItem("Lotus Design", "15,320 lines  •  4 Colors", "May 12", TealAccent)
+                if (images.isEmpty()) {
+                    Text("No recent designs found", color = GrayText, modifier = Modifier.padding(8.dp))
+                } else {
+                    images.take(3).forEachIndexed { index, img ->
+                        DesignItem(img)
+                        if (index < minOf(images.size - 1, 2)) {
+                            HorizontalDivider(color = Color.White.copy(alpha = 0.3f), modifier = Modifier.padding(vertical = 12.dp))
+                        }
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-fun DesignItem(title: String, stats: String, date: String, color: Color) {
+fun DesignItem(img: ImageRecord) {
+    val fullUrl = "http://10.0.2.2:5000${img.url}"
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -271,21 +283,27 @@ fun DesignItem(title: String, stats: String, date: String, color: Color) {
         Box(
             modifier = Modifier
                 .size(48.dp)
-                .background(Color.White, RoundedCornerShape(12.dp)),
+                .background(Color.White, RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Outlined.AutoAwesome, contentDescription = null, tint = color)
+            AsyncImage(
+                model = fullUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
         }
         
         Spacer(modifier = Modifier.width(16.dp))
         
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DarkText)
+            Text(text = img.filename, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DarkText, maxLines = 1)
             Spacer(modifier = Modifier.height(2.dp))
-            Text(text = stats, fontSize = 13.sp, color = GrayText)
+            Text(text = "Status: ${img.status}", fontSize = 13.sp, color = GrayText)
         }
         
-        Text(text = date, fontSize = 13.sp, color = GrayText)
+        Text(text = "Now", fontSize = 12.sp, color = GrayText)
     }
 }
 

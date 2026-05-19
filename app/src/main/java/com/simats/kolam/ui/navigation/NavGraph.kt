@@ -23,19 +23,24 @@ sealed class Screen(val route: String) {
 }
 
 @Composable
-fun AppNavGraph(navController: NavHostController) {
-    val sharedViewModel: KolamViewModel = viewModel()
-
+fun AppNavGraph(
+    navController: NavHostController,
+    sharedViewModel: KolamViewModel = viewModel()
+) {
     NavHost(
         navController = navController,
         startDestination = Screen.Splash.route
     ) {
         composable(Screen.Splash.route) {
-            SplashScreen(onSplashFinished = {
-                navController.navigate(Screen.Login.route) {
-                    popUpTo(Screen.Splash.route) { inclusive = true }
+            SplashScreen(
+                viewModel = sharedViewModel,
+                onSplashFinished = { isLoggedIn ->
+                    val destination = if (isLoggedIn) Screen.Home.route else Screen.Login.route
+                    navController.navigate(destination) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
                 }
-            })
+            )
         }
         composable(Screen.Login.route) {
             LoginScreen(
@@ -70,36 +75,27 @@ fun AppNavGraph(navController: NavHostController) {
         }
         composable(Screen.Designs.route) {
             DesignsScreen(
-                onNavigateToHome = {
-                    navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Home.route) { inclusive = true }
-                    }
-                },
-                onNavigateToDevices = { navController.navigate(Screen.Devices.route) },
-                onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
+                viewModel = sharedViewModel,
+                onNavigateToHome = { navController.navigate(Screen.Home.route) { popUpTo(Screen.Home.route) { inclusive = true } } },
+                onNavigateToDevices = { navController.navigate(Screen.Devices.route) { popUpTo(Screen.Home.route) } },
+                onNavigateToSettings = { navController.navigate(Screen.Settings.route) { popUpTo(Screen.Home.route) } }
             )
         }
         composable(Screen.Devices.route) {
             DevicesScreen(
                 viewModel = sharedViewModel,
-                onNavigateToHome = {
-                    navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Home.route) { inclusive = true }
-                    }
-                },
-                onNavigateToDesigns = { navController.navigate(Screen.Designs.route) },
-                onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
+                onNavigateToHome = { navController.navigate(Screen.Home.route) { popUpTo(Screen.Home.route) { inclusive = true } } },
+                onNavigateToDesigns = { navController.navigate(Screen.Designs.route) { popUpTo(Screen.Home.route) } },
+                onNavigateToSettings = { navController.navigate(Screen.Settings.route) { popUpTo(Screen.Home.route) } }
             )
         }
         composable(Screen.Settings.route) {
             SettingsScreen(
-                onNavigateToHome = {
-                    navController.navigate(Screen.Home.route) {
-                        popUpTo(Screen.Home.route) { inclusive = true }
-                    }
-                },
-                onNavigateToDesigns = { navController.navigate(Screen.Designs.route) },
-                onNavigateToDevices = { navController.navigate(Screen.Devices.route) }
+                viewModel = sharedViewModel,
+                onNavigateToHome = { navController.navigate(Screen.Home.route) { popUpTo(Screen.Home.route) { inclusive = true } } },
+                onNavigateToDesigns = { navController.navigate(Screen.Designs.route) { popUpTo(Screen.Home.route) } },
+                onNavigateToDevices = { navController.navigate(Screen.Devices.route) { popUpTo(Screen.Home.route) } },
+                onNavigateToLogin = { navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } } }
             )
         }
         composable(Screen.UploadImage.route) {
