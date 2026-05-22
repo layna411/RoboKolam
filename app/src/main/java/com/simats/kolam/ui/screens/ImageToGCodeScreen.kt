@@ -113,7 +113,9 @@ fun ImageToGCodeScreen(
                                 model = selectedImageUri,
                                 contentDescription = "Selected Image",
                                 modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)),
-                                contentScale = ContentScale.Crop
+                                contentScale = ContentScale.Crop,
+                                error = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Default.BrokenImage),
+                                placeholder = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Default.Image)
                             )
                         }
                     }

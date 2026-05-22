@@ -36,6 +36,7 @@ import com.simats.kolam.ui.components.GlassCard
 import com.simats.kolam.ui.components.GradientButton
 import com.simats.kolam.ui.theme.*
 import com.simats.kolam.models.ImageRecord
+import com.simats.kolam.api.RetrofitClient
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -111,7 +112,13 @@ fun UploadImageScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                RecentImagesSection(userImages)
+                RecentImagesSection(
+                    images = userImages,
+                    onImageClick = { img ->
+                        viewModel.selectRecentImage(img)
+                        onContinueClick()
+                    }
+                )
 
                 Spacer(modifier = Modifier.height(32.dp))
 
@@ -137,7 +144,7 @@ fun UploadArea(selectedImageUri: android.net.Uri?, onPickImage: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(240.dp)
+            .defaultMinSize(minHeight = 240.dp)
             .border(
                 width = 2.dp,
                 color = VioletPrimary.copy(alpha = 0.3f),
@@ -154,7 +161,9 @@ fun UploadArea(selectedImageUri: android.net.Uri?, onPickImage: () -> Unit) {
                     model = selectedImageUri,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(24.dp)),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    error = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Default.BrokenImage),
+                    placeholder = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Default.Image)
                 )
             } else {
                 Column(
@@ -219,7 +228,7 @@ fun UploadArea(selectedImageUri: android.net.Uri?, onPickImage: () -> Unit) {
 }
 
 @Composable
-fun RecentImagesSection(images: List<ImageRecord>) {
+fun RecentImagesSection(images: List<ImageRecord>, onImageClick: (ImageRecord) -> Unit) {
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -235,7 +244,7 @@ fun RecentImagesSection(images: List<ImageRecord>) {
         } else {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 items(images.size) { index ->
-                    RecentImageItem(images[index])
+                    RecentImageItem(images[index], onClick = { onImageClick(images[index]) })
                 }
             }
         }
@@ -243,17 +252,28 @@ fun RecentImagesSection(images: List<ImageRecord>) {
 }
 
 @Composable
-fun RecentImageItem(img: ImageRecord) {
-    val fullUrl = "http://10.0.2.2:5000${img.url}"
+fun RecentImageItem(img: ImageRecord, onClick: () -> Unit) {
+    val fullUrl = if (img.url.startsWith("http")) {
+        img.url
+    } else {
+        val baseUrl = RetrofitClient.BASE_URL.removeSuffix("/")
+        val path = if (img.url.startsWith("/")) img.url else "/${img.url}"
+        baseUrl + path
+    }
+    
     GlassCard(
-        modifier = Modifier.size(110.dp)
+        modifier = Modifier
+            .size(110.dp)
+            .clickable { onClick() }
     ) {
         Box(modifier = Modifier.fillMaxSize().padding(12.dp)) {
             AsyncImage(
                 model = fullUrl,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp))
+                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)),
+                error = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Default.BrokenImage),
+                placeholder = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Default.Image)
             )
         }
     }

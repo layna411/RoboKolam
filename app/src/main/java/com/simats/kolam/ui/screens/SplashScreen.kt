@@ -21,7 +21,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.simats.kolam.ui.theme.*
 import kotlinx.coroutines.delay
-
 import com.simats.kolam.viewmodel.KolamViewModel
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue

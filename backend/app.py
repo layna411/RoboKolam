@@ -8,7 +8,7 @@ import uuid
 import datetime
 import cv2
 import numpy as np
-from sklearn.cluster import KMeans
+
 
 app = Flask(__name__)
 CORS(app)
@@ -21,7 +21,7 @@ DB_CONFIG = {
     'database': 'Kolam'
 }
 
-UPLOAD_FOLDER = 'uploads'
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -75,6 +75,18 @@ def init_db():
                 status VARCHAR(50) DEFAULT 'uploaded',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS completed_drawings (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT,
+                image_id INT,
+                gcode LONGTEXT,
+                time_taken INT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id),
+                FOREIGN KEY (image_id) REFERENCES images(id)
             )
         ''')
         conn.commit()
@@ -139,6 +151,49 @@ def login():
             cursor.close()
             conn.close()
 
+@app.route('/auth/update', methods=['POST'])
+def update_profile():
+    data = request.json
+    user_id = data.get('user_id')
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
+
+    if not user_id or not username or not email:
+        return jsonify({"success": False, "message": "Missing required fields"}), 400
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"success": False, "message": "Database error"}), 500
+
+    try:
+        cursor = conn.cursor(dictionary=True)
+        if password and password.strip():
+            cursor.execute(
+                "UPDATE users SET username=%s, email=%s, password=%s WHERE id=%s",
+                (username, email, password.strip(), user_id)
+            )
+        else:
+            cursor.execute(
+                "UPDATE users SET username=%s, email=%s WHERE id=%s",
+                (username, email, user_id)
+            )
+        conn.commit()
+        
+        # Return updated user info
+        cursor.execute("SELECT id, username, email FROM users WHERE id=%s", (user_id,))
+        user = cursor.fetchone()
+        
+        return jsonify({"success": True, "message": "Profile updated successfully", "user": user})
+    except Error as e:
+        if e.errno == 1062:
+            return jsonify({"success": False, "message": "Email already exists"}), 400
+        return jsonify({"success": False, "message": str(e)}), 500
+    finally:
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
+
 @app.route('/upload/image', methods=['POST'])
 def upload_image():
     if 'image' not in request.files:
@@ -181,12 +236,13 @@ def get_user_images(user_id):
         
     try:
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT id, filename, status, created_at FROM images WHERE user_id=%s ORDER BY created_at DESC", (user_id,))
+        cursor.execute("SELECT id, filename, path, status, created_at FROM images WHERE user_id=%s ORDER BY created_at DESC", (user_id,))
         images = cursor.fetchall()
         
         # Add the full URL for each image
         for img in images:
-            img['url'] = f"/uploads/{img['filename']}"
+            unique_filename = os.path.basename(img['path'])
+            img['url'] = f"/uploads/{unique_filename}"
             
         return jsonify({"success": True, "images": images})
     except Error as e:
@@ -255,7 +311,12 @@ def generate_gcode_for_image(image_path, sensitivity=0.8, noise_reduction=0.4, a
         epsilon_factor = 0.05 - (sensitivity * 0.049)
 
         for cnt in contours:
-            if cv2.contourArea(cnt) < min_area:
+            length = cv2.arcLength(cnt, True)
+            area = cv2.contourArea(cnt)
+            # A contour is considered noise only if both its area AND its length are extremely small.
+            # If the contour has high length but low area, it is a thin line which we want to preserve!
+            # The length threshold is dynamically scaled by noise_reduction.
+            if area < min_area and length < (noise_reduction * 100.0):
                 continue
                 
             epsilon = epsilon_factor * cv2.arcLength(cnt, True)
@@ -304,6 +365,68 @@ def process_image():
         
         return jsonify({"success": True, "gcode": gcode})
         
+    except Error as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+    finally:
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
+
+@app.route('/drawing/complete', methods=['POST'])
+def complete_drawing():
+    data = request.json
+    user_id = data.get('user_id')
+    image_id = data.get('image_id')
+    gcode = data.get('gcode')
+    time_taken = data.get('time_taken')
+    
+    if not user_id or not image_id or not gcode or time_taken is None:
+        return jsonify({"success": False, "message": "Missing fields"}), 400
+        
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"success": False, "message": "Database error"}), 500
+        
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO completed_drawings (user_id, image_id, gcode, time_taken) VALUES (%s, %s, %s, %s)",
+            (user_id, image_id, gcode, time_taken)
+        )
+        conn.commit()
+        drawing_id = cursor.lastrowid
+        return jsonify({"success": True, "message": "Drawing details stored successfully", "drawing_id": drawing_id})
+    except Error as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+    finally:
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
+
+@app.route('/drawings/<int:user_id>', methods=['GET'])
+def get_completed_drawings(user_id):
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"success": False, "message": "Database error"}), 500
+        
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            """SELECT cd.id, cd.image_id, cd.gcode, cd.time_taken, cd.created_at, i.filename, i.path 
+               FROM completed_drawings cd 
+               JOIN images i ON cd.image_id = i.id 
+               WHERE cd.user_id=%s 
+               ORDER BY cd.created_at DESC""",
+            (user_id,)
+        )
+        drawings = cursor.fetchall()
+        
+        # Add full URL for images
+        for item in drawings:
+            unique_filename = os.path.basename(item['path'])
+            item['image_url'] = f"/uploads/{unique_filename}"
+            
+        return jsonify({"success": True, "drawings": drawings})
     except Error as e:
         return jsonify({"success": False, "message": str(e)}), 500
     finally:

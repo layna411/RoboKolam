@@ -30,4 +30,13 @@ interface KolamApiService {
 
     @retrofit2.http.GET("images/{user_id}")
     suspend fun getUserImages(@retrofit2.http.Path("user_id") userId: Int): Response<com.simats.kolam.models.ImagesResponse>
+
+    @POST("drawing/complete")
+    suspend fun saveDrawingHistory(@Body request: com.simats.kolam.models.DrawingHistoryRequest): Response<com.simats.kolam.models.DrawingHistoryResponse>
+
+    @retrofit2.http.GET("drawings/{user_id}")
+    suspend fun getCompletedDrawings(@retrofit2.http.Path("user_id") userId: Int): Response<com.simats.kolam.models.CompletedDrawingsResponse>
+
+    @retrofit2.http.POST("auth/update")
+    suspend fun updateProfile(@retrofit2.http.Body request: com.simats.kolam.models.UpdateProfileRequest): Response<com.simats.kolam.models.UpdateProfileResponse>
 }

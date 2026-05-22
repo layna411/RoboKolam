@@ -68,6 +68,7 @@ fun AppNavGraph(
             HomeScreen(
                 viewModel = sharedViewModel,
                 onNavigateToUpload = { navController.navigate(Screen.UploadImage.route) },
+                onNavigateToProcessing = { navController.navigate(Screen.ImageToGCode.route) },
                 onNavigateToDesigns = { navController.navigate(Screen.Designs.route) },
                 onNavigateToDevices = { navController.navigate(Screen.Devices.route) },
                 onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
@@ -77,6 +78,7 @@ fun AppNavGraph(
             DesignsScreen(
                 viewModel = sharedViewModel,
                 onNavigateToHome = { navController.navigate(Screen.Home.route) { popUpTo(Screen.Home.route) { inclusive = true } } },
+                onNavigateToProcessing = { navController.navigate(Screen.ImageToGCode.route) },
                 onNavigateToDevices = { navController.navigate(Screen.Devices.route) { popUpTo(Screen.Home.route) } },
                 onNavigateToSettings = { navController.navigate(Screen.Settings.route) { popUpTo(Screen.Home.route) } }
             )
