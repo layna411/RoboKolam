@@ -365,11 +365,11 @@ class KolamViewModel : ViewModel() {
             _connectionStatus.value = "Connecting to ${device.name ?: "Device"}..."
             _isConnected.value = false
             
-            val success = kotlinx.coroutines.Dispatchers.IO.run {
+            val success = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 try {
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
                         if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                            return@run false
+                            return@withContext false
                         }
                     }
                     
@@ -430,7 +430,7 @@ class KolamViewModel : ViewModel() {
             readerThread?.interrupt()
             readerThread = null
             
-            kotlinx.coroutines.Dispatchers.IO.run {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 try {
                     outputStream?.close()
                     inputStream?.close()
@@ -511,7 +511,6 @@ class KolamViewModel : ViewModel() {
         if (gcode.isBlank() || lines.isEmpty()) return
         
         if (!_isConnected.value) {
-            startDrawingSimulation()
             return
         }
         

@@ -238,7 +238,7 @@ fun DevicesScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                AxisControlPanel(viewModel = viewModel)
+                AxisControlPanel(viewModel = viewModel, isConnected = isConnected)
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -405,10 +405,10 @@ fun ConnectedDeviceCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                DeviceActionItem(Icons.Default.PlayArrow, if(isDrawing) "Drawing" else "Start", Color(0xFF34C759), onClick = onStart, modifier = Modifier.weight(1f))
-                DeviceActionItem(Icons.Default.Pause, "Pause", Color(0xFFFF9F0A), onClick = onStop, modifier = Modifier.weight(1f))
-                DeviceActionItem(Icons.Default.Stop, "E-Stop", Color(0xFFFF3B30), onClick = onStop, modifier = Modifier.weight(1f))
-                DeviceActionItem(Icons.Default.Home, "Home Pos", VioletPrimary, onClick = onHome, modifier = Modifier.weight(1f))
+                DeviceActionItem(Icons.Default.PlayArrow, if(isDrawing) "Drawing" else "Start", Color(0xFF34C759), onClick = onStart, enabled = isConnected, modifier = Modifier.weight(1f))
+                DeviceActionItem(Icons.Default.Pause, "Pause", Color(0xFFFF9F0A), onClick = onStop, enabled = isConnected, modifier = Modifier.weight(1f))
+                DeviceActionItem(Icons.Default.Stop, "E-Stop", Color(0xFFFF3B30), onClick = onStop, enabled = isConnected, modifier = Modifier.weight(1f))
+                DeviceActionItem(Icons.Default.Home, "Home Pos", VioletPrimary, onClick = onHome, enabled = isConnected, modifier = Modifier.weight(1f))
             }
         }
     }
@@ -420,22 +420,24 @@ fun DeviceActionItem(
     label: String,
     color: Color,
     onClick: () -> Unit,
+    enabled: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val alpha = if (enabled) 1.0f else 0.35f
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
-            .background(Color.White.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
-            .clickable { onClick() }
+            .background(Color.White.copy(alpha = if (enabled) 0.5f else 0.2f), RoundedCornerShape(16.dp))
+            .clickable(enabled = enabled) { onClick() }
             .padding(vertical = 12.dp, horizontal = 4.dp)
     ) {
-        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
+        Icon(icon, contentDescription = null, tint = color.copy(alpha = alpha), modifier = Modifier.size(24.dp))
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = label,
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
-            color = DarkText,
+            color = DarkText.copy(alpha = alpha),
             textAlign = TextAlign.Center,
             maxLines = 1
         )
@@ -472,7 +474,7 @@ fun TelemetryCard(title: String, value: String, unit: String, modifier: Modifier
 }
 
 @Composable
-fun AxisControlPanel(viewModel: KolamViewModel) {
+fun AxisControlPanel(viewModel: KolamViewModel, isConnected: Boolean) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(text = "Manual Jog Controls", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DarkText, modifier = Modifier.padding(start = 4.dp))
         Spacer(modifier = Modifier.height(12.dp))
@@ -483,8 +485,8 @@ fun AxisControlPanel(viewModel: KolamViewModel) {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Y+
-                JogButton(icon = Icons.Default.KeyboardArrowUp, label = "Y+") {
-                    viewModel.jog("Y", 10f)
+                JogButton(icon = Icons.Default.KeyboardArrowUp, label = "Y+", enabled = isConnected) {
+                    viewModel.jog("Y", 1f)
                 }
                 
                 Row(
@@ -493,34 +495,35 @@ fun AxisControlPanel(viewModel: KolamViewModel) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // X-
-                    JogButton(icon = Icons.Default.KeyboardArrowLeft, label = "X-") {
-                        viewModel.jog("X", -10f)
+                    JogButton(icon = Icons.Default.KeyboardArrowLeft, label = "X-", enabled = isConnected) {
+                        viewModel.jog("X", -1f)
                     }
                     
                     Spacer(modifier = Modifier.width(32.dp))
                     
+                    val resetAlpha = if (isConnected) 1.0f else 0.35f
                     Box(
                         modifier = Modifier
                             .size(60.dp)
-                            .background(Brush.radialGradient(listOf(Color.White, Color.White.copy(alpha = 0.5f))), CircleShape)
-                            .border(2.dp, VioletPrimary.copy(alpha = 0.3f), CircleShape)
-                            .clickable { viewModel.resetCoordinates() },
+                            .background(Brush.radialGradient(listOf(Color.White.copy(alpha = resetAlpha), Color.White.copy(alpha = resetAlpha * 0.5f))), CircleShape)
+                            .border(2.dp, VioletPrimary.copy(alpha = resetAlpha * 0.3f), CircleShape)
+                            .clickable(enabled = isConnected) { viewModel.resetCoordinates() },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("Reset", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = VioletPrimary)
+                        Text("Reset", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = VioletPrimary.copy(alpha = resetAlpha))
                     }
                     
                     Spacer(modifier = Modifier.width(32.dp))
                     
                     // X+
-                    JogButton(icon = Icons.Default.KeyboardArrowRight, label = "X+") {
-                        viewModel.jog("X", 10f)
+                    JogButton(icon = Icons.Default.KeyboardArrowRight, label = "X+", enabled = isConnected) {
+                        viewModel.jog("X", 1f)
                     }
                 }
                 
                 // Y-
-                JogButton(icon = Icons.Default.KeyboardArrowDown, label = "Y-") {
-                    viewModel.jog("Y", -10f)
+                JogButton(icon = Icons.Default.KeyboardArrowDown, label = "Y-", enabled = isConnected) {
+                    viewModel.jog("Y", -1f)
                 }
             }
         }
@@ -528,18 +531,19 @@ fun AxisControlPanel(viewModel: KolamViewModel) {
 }
 
 @Composable
-fun JogButton(icon: ImageVector, label: String, onClick: () -> Unit) {
+fun JogButton(icon: ImageVector, label: String, enabled: Boolean, onClick: () -> Unit) {
+    val alpha = if (enabled) 1.0f else 0.35f
     Box(
         modifier = Modifier
             .size(70.dp)
-            .background(Color.White.copy(alpha = 0.8f), RoundedCornerShape(20.dp))
-            .border(1.dp, VioletPrimary.copy(alpha = 0.1f), RoundedCornerShape(20.dp))
-            .clickable { onClick() },
+            .background(Color.White.copy(alpha = if (enabled) 0.8f else 0.3f), RoundedCornerShape(20.dp))
+            .border(1.dp, VioletPrimary.copy(alpha = if (enabled) 0.1f else 0.03f), RoundedCornerShape(20.dp))
+            .clickable(enabled = enabled) { onClick() },
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(icon, contentDescription = null, tint = DarkText, modifier = Modifier.size(32.dp))
-            Text(text = label, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = VioletPrimary)
+            Icon(icon, contentDescription = null, tint = DarkText.copy(alpha = alpha), modifier = Modifier.size(32.dp))
+            Text(text = label, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = VioletPrimary.copy(alpha = alpha))
         }
     }
 }
@@ -828,15 +832,17 @@ fun Realtime3DVisualizer(viewModel: KolamViewModel) {
                     if (toolpathLines.isNotEmpty()) {
                         toolpathLines.forEachIndexed { idx, line ->
                             val isDone = isDrawing && idx <= currentLineIndex
+                            val showAsCompleted = !isDrawing || isDone
                             
                             val startProj = project3D(line.startX, line.startY, 0f)
                             val endProj = project3D(line.endX, line.endY, 0f)
                             
                             if (line.color == "Travel") {
                                 // Travel moves (G0) drawn as thin dotted paths
-                                if (!isDone) {
+                                val showTravel = !isDrawing || !isDone
+                                if (showTravel) {
                                     drawLine(
-                                        color = Color.White.copy(alpha = 0.12f),
+                                        color = Color.White.copy(alpha = if (!isDrawing) 0.08f else 0.15f),
                                         start = startProj,
                                         end = endProj,
                                         strokeWidth = 1.dp.toPx(),
@@ -855,21 +861,23 @@ fun Realtime3DVisualizer(viewModel: KolamViewModel) {
                                     else -> Color.White
                                 }
                                 
-                                if (isDone) {
-                                    // Completed glowing path
+                                if (showAsCompleted) {
+                                    // Solid path
                                     drawLine(
                                         color = strokeCol,
                                         start = startProj,
                                         end = endProj,
-                                        strokeWidth = 3.dp.toPx()
+                                        strokeWidth = 2.dp.toPx()
                                     )
-                                    // Glow highlight
-                                    drawLine(
-                                        color = strokeCol.copy(alpha = 0.35f),
-                                        start = startProj,
-                                        end = endProj,
-                                        strokeWidth = 6.dp.toPx()
-                                    )
+                                    if (isDrawing && isDone) {
+                                        // Glow highlight only during active drawing
+                                        drawLine(
+                                            color = strokeCol.copy(alpha = 0.35f),
+                                            start = startProj,
+                                            end = endProj,
+                                            strokeWidth = 5.dp.toPx()
+                                        )
+                                    }
                                 } else {
                                     // Pending contours - thin semi-transparent lines
                                     drawLine(
