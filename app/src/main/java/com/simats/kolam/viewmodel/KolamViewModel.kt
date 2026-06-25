@@ -20,6 +20,15 @@ import java.io.FileOutputStream
 import com.simats.kolam.models.User
 import com.simats.kolam.models.ImageRecord
 import com.google.gson.Gson
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothSocket
+import java.io.InputStream
+import java.io.OutputStream
+import java.util.UUID
+import java.io.BufferedReader
+import java.io.InputStreamReader
 
 class KolamViewModel : ViewModel() {
     private val gson = Gson()
@@ -320,21 +329,167 @@ class KolamViewModel : ViewModel() {
     private val _connectionStatus = MutableStateFlow("Disconnected")
     val connectionStatus: StateFlow<String> = _connectionStatus.asStateFlow()
 
-    fun connectDevice() {
+    private val _bondedDevices = MutableStateFlow<List<BluetoothDevice>>(emptyList())
+    val bondedDevices: StateFlow<List<BluetoothDevice>> = _bondedDevices.asStateFlow()
+
+    private var bluetoothSocket: BluetoothSocket? = null
+    private var outputStream: OutputStream? = null
+    private var inputStream: InputStream? = null
+    private var readerThread: Thread? = null
+
+    private val SPP_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+
+    @Volatile
+    private var okReceived = false
+    private val okLock = Object()
+
+    fun fetchBondedDevices(context: Context) {
+        try {
+            val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+            val adapter = bluetoothManager.adapter
+            if (adapter != null && adapter.isEnabled) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                    if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        return
+                    }
+                }
+                _bondedDevices.value = adapter.bondedDevices.toList()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun connectDevice(device: BluetoothDevice, context: Context) {
         viewModelScope.launch {
-            _connectionStatus.value = "Connecting..."
-            delay(1500)
-            _isConnected.value = true
-            _connectionStatus.value = "Connected (BLE)"
+            _connectionStatus.value = "Connecting to ${device.name ?: "Device"}..."
+            _isConnected.value = false
+            
+            val success = kotlinx.coroutines.Dispatchers.IO.run {
+                try {
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                        if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                            return@run false
+                        }
+                    }
+                    
+                    bluetoothSocket?.close()
+                    val socket = device.createRfcommSocketToServiceRecord(SPP_UUID)
+                    bluetoothSocket = socket
+                    socket.connect()
+                    
+                    outputStream = socket.outputStream
+                    inputStream = socket.inputStream
+                    true
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    false
+                }
+            }
+            
+            if (success) {
+                _isConnected.value = true
+                _connectionStatus.value = "Connected to ${device.name ?: "HC-05"}"
+                startReaderThread()
+            } else {
+                _isConnected.value = false
+                _connectionStatus.value = "Connection Failed"
+                bluetoothSocket = null
+                outputStream = null
+                inputStream = null
+            }
+        }
+    }
+
+    fun connectDevice(context: Context) {
+        viewModelScope.launch {
+            _connectionStatus.value = "Scanning paired devices..."
+            fetchBondedDevices(context)
+            
+            val devices = _bondedDevices.value
+            val targetDevice = devices.firstOrNull { 
+                val name = it.name ?: ""
+                name.contains("HC-05", ignoreCase = true) || 
+                name.contains("HC-06", ignoreCase = true) || 
+                name.contains("RangoliBot", ignoreCase = true) || 
+                name.contains("ESP32", ignoreCase = true) 
+            } ?: devices.firstOrNull()
+            
+            if (targetDevice != null) {
+                connectDevice(targetDevice, context)
+            } else {
+                _connectionStatus.value = "No paired HC-05 found"
+            }
         }
     }
 
     fun disconnectDevice() {
-        _isConnected.value = false
-        _connectionStatus.value = "Disconnected"
+        viewModelScope.launch {
+            _connectionStatus.value = "Disconnecting..."
+            
+            readerThread?.interrupt()
+            readerThread = null
+            
+            kotlinx.coroutines.Dispatchers.IO.run {
+                try {
+                    outputStream?.close()
+                    inputStream?.close()
+                    bluetoothSocket?.close()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+            
+            bluetoothSocket = null
+            outputStream = null
+            inputStream = null
+            _isConnected.value = false
+            _connectionStatus.value = "Disconnected"
+        }
     }
 
-    // --- Drawing Simulation State ---
+    private fun startReaderThread() {
+        readerThread?.interrupt()
+        readerThread = Thread {
+            val reader = BufferedReader(InputStreamReader(inputStream))
+            try {
+                while (!Thread.currentThread().isInterrupted && _isConnected.value) {
+                    val line = reader.readLine() ?: break
+                    println("CNC Bluetooth RX: $line")
+                    val trimmed = line.trim().lowercase()
+                    if (trimmed.startsWith("ok") || trimmed.startsWith("error")) {
+                        synchronized(okLock) {
+                            okReceived = true
+                            okLock.notifyAll()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                println("Bluetooth read error: ${e.message}")
+            } finally {
+                if (_isConnected.value) {
+                    viewModelScope.launch {
+                        disconnectDevice()
+                    }
+                }
+            }
+        }.apply { start() }
+    }
+
+    private fun sendGCodeLine(line: String): Boolean {
+        return try {
+            outputStream?.let { stream ->
+                stream.write(line.toByteArray())
+                stream.flush()
+                true
+            } ?: false
+        } catch (e: java.io.IOException) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    // --- Drawing State ---
     private val _isDrawing = MutableStateFlow(false)
     val isDrawing: StateFlow<Boolean> = _isDrawing.asStateFlow()
 
@@ -351,10 +506,110 @@ class KolamViewModel : ViewModel() {
     val activeColor: StateFlow<String> = _activeColor.asStateFlow()
 
     fun startDrawing() {
-        if (!_isConnected.value) return
+        val gcode = _generatedGCode.value
         val lines = _toolpathLines.value
-        if (lines.isEmpty()) return
+        if (gcode.isBlank() || lines.isEmpty()) return
         
+        if (!_isConnected.value) {
+            startDrawingSimulation()
+            return
+        }
+        
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            _isDrawing.value = true
+            _drawingProgress.value = 0f
+            _currentLineIndex.value = 0
+            val startTime = System.currentTimeMillis()
+            
+            val rawLines = gcode.lines()
+            val filteredLines = rawLines.map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith(";") }
+            val totalSent = filteredLines.size
+            var sentCount = 0
+            
+            var currentXVal = _currentX.value
+            var currentYVal = _currentY.value
+            var currentZVal = _activeColor.value
+            
+            for (line in filteredLines) {
+                if (!_isDrawing.value || !_isConnected.value) break
+                
+                if (line.startsWith("Z1") || line.contains("Color 1")) {
+                    currentZVal = "Red (Z1)"
+                } else if (line.startsWith("Z2") || line.contains("Color 2")) {
+                    currentZVal = "Yellow (Z2)"
+                } else if (line.startsWith("Z3") || line.contains("Color 3")) {
+                    currentZVal = "Blue (Z3)"
+                } else if (line.startsWith("G0") || line.startsWith("G1")) {
+                    val parts = line.split(" ")
+                    parts.forEach { part ->
+                        if (part.startsWith("X")) {
+                            currentXVal = part.substring(1).toFloatOrNull() ?: currentXVal
+                        }
+                        if (part.startsWith("Y")) {
+                            currentYVal = part.substring(1).toFloatOrNull() ?: currentYVal
+                        }
+                    }
+                }
+                
+                val cleanCommand = line + "\n"
+                val writeSuccess = sendGCodeLine(cleanCommand)
+                if (!writeSuccess) {
+                    println("Bluetooth write error for command: $line")
+                    break
+                }
+                
+                synchronized(okLock) {
+                    okReceived = false
+                    val timeoutMs = 15000L
+                    val startWait = System.currentTimeMillis()
+                    while (!okReceived && _isDrawing.value && _isConnected.value) {
+                        val elapsed = System.currentTimeMillis() - startWait
+                        val remaining = timeoutMs - elapsed
+                        if (remaining <= 0) {
+                            println("Handshake timeout for command: $line")
+                            break
+                        }
+                        try {
+                            okLock.wait(remaining)
+                        } catch (e: InterruptedException) {
+                            Thread.currentThread().interrupt()
+                            break
+                        }
+                    }
+                }
+                
+                sentCount++
+                
+                viewModelScope.launch {
+                    _currentX.value = currentXVal
+                    _currentY.value = currentYVal
+                    _activeColor.value = currentZVal
+                    _drawingProgress.value = sentCount.toFloat() / totalSent
+                    
+                    val matchingIndex = lines.indexOfFirst {
+                        Math.abs(it.endX - currentXVal) < 0.1f && Math.abs(it.endY - currentYVal) < 0.1f
+                    }
+                    if (matchingIndex != -1) {
+                        _currentLineIndex.value = matchingIndex
+                    }
+                }
+            }
+            
+            val durationSeconds = ((System.currentTimeMillis() - startTime) / 1000).toInt()
+            
+            viewModelScope.launch {
+                if (_isDrawing.value && sentCount >= totalSent) {
+                    saveCompletedDrawing(durationSeconds)
+                }
+                _isDrawing.value = false
+                _activeColor.value = "None"
+                _currentLineIndex.value = -1
+            }
+        }
+    }
+
+    private fun startDrawingSimulation() {
+        val lines = _toolpathLines.value
         viewModelScope.launch {
             _isDrawing.value = true
             _drawingProgress.value = 0f
@@ -363,9 +618,8 @@ class KolamViewModel : ViewModel() {
             
             val totalLines = lines.size
             lines.forEachIndexed { index, line ->
-                if (!_isDrawing.value) return@launch // Handled Stop/Pause
+                if (!_isDrawing.value) return@launch
                 
-                // Speed up simulation to make it fluid: 30ms for travel, 70ms for drawing
                 val stepDelay = if (line.color == "Travel") 30L else 70L
                 delay(stepDelay)
                 
@@ -383,8 +637,6 @@ class KolamViewModel : ViewModel() {
             }
             
             val durationSeconds = ((System.currentTimeMillis() - startTime) / 1000).toInt()
-            
-            // Drawing is fully complete! Store details in database.
             saveCompletedDrawing(durationSeconds)
             
             _isDrawing.value = false
@@ -410,7 +662,6 @@ class KolamViewModel : ViewModel() {
                 val response = RetrofitClient.apiService.saveDrawingHistory(req)
                 if (response.isSuccessful && response.body()?.success == true) {
                     println("Successfully stored drawing details, id: ${response.body()?.drawing_id}")
-                    // Refresh Completed Drawings List automatically!
                     fetchCompletedDrawings()
                 } else {
                     println("Failed to store drawing: ${response.body()?.message}")
@@ -480,6 +731,71 @@ class KolamViewModel : ViewModel() {
     
     fun stopDrawing() {
         _isDrawing.value = false
+        synchronized(okLock) {
+            okLock.notifyAll()
+        }
+        if (_isConnected.value) {
+            viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                sendGCodeLine("!\n")
+                sendGCodeLine(charArrayOf(24.toChar()).concatToString() + "\n")
+            }
+        }
+    }
+
+    fun jog(axis: String, amount: Float) {
+        if (!_isConnected.value) {
+            when (axis.uppercase()) {
+                "X" -> _currentX.value = (_currentX.value + amount).coerceIn(0f, _bedWidth.value)
+                "Y" -> _currentY.value = (_currentY.value + amount).coerceIn(0f, _bedHeight.value)
+            }
+            return
+        }
+        
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val feed = _machineFeedrate.value
+            sendGCodeLine("G91\n")
+            sendGCodeLine("G0 ${axis.uppercase()}$amount F$feed\n")
+            sendGCodeLine("G90\n")
+            
+            viewModelScope.launch {
+                when (axis.uppercase()) {
+                    "X" -> _currentX.value = (_currentX.value + amount).coerceIn(0f, _bedWidth.value)
+                    "Y" -> _currentY.value = (_currentY.value + amount).coerceIn(0f, _bedHeight.value)
+                }
+            }
+        }
+    }
+
+    fun homeMachine() {
+        if (!_isConnected.value) {
+            _currentX.value = 0f
+            _currentY.value = 0f
+            return
+        }
+        
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            sendGCodeLine("G28\n")
+            viewModelScope.launch {
+                _currentX.value = 0f
+                _currentY.value = 0f
+            }
+        }
+    }
+
+    fun resetCoordinates() {
+        if (!_isConnected.value) {
+            _currentX.value = 0f
+            _currentY.value = 0f
+            return
+        }
+        
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            sendGCodeLine("G92 X0 Y0 Z0\n")
+            viewModelScope.launch {
+                _currentX.value = 0f
+                _currentY.value = 0f
+            }
+        }
     }
 
     // --- Profile & Settings Actions ---

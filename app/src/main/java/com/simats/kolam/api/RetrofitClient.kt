@@ -4,7 +4,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object RetrofitClient {
-    const val BASE_URL = "http://192.168.137.1:5000/" // Android Emulator localhost alias
+    const val BASE_URL = "http://172.23.49.216:5000/"
 
     val apiService: KolamApiService by lazy {
         Retrofit.Builder()

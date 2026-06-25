@@ -16,7 +16,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -31,6 +30,7 @@ import com.simats.kolam.viewmodel.KolamViewModel
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.Intent
@@ -62,6 +62,9 @@ fun DevicesScreen(
     val currentY by viewModel.currentY.collectAsState()
     val activeColor by viewModel.activeColor.collectAsState()
     val generatedGCode by viewModel.generatedGCode.collectAsState()
+    
+    val bondedDevices by viewModel.bondedDevices.collectAsState()
+    var showDevicePicker by remember { mutableStateOf(false) }
 
     // Permissions to request based on Android SDK Version
     val permissionsToRequest = remember {
@@ -91,8 +94,9 @@ fun DevicesScreen(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) {
-            viewModel.connectDevice()
-            Toast.makeText(context, "Bluetooth enabled. Connecting to CNC...", Toast.LENGTH_SHORT).show()
+            viewModel.fetchBondedDevices(context)
+            showDevicePicker = true
+            Toast.makeText(context, "Bluetooth enabled. Select your CNC device...", Toast.LENGTH_SHORT).show()
         } else {
             Toast.makeText(context, "Bluetooth must be enabled to connect to the CNC machine.", Toast.LENGTH_SHORT).show()
         }
@@ -108,7 +112,8 @@ fun DevicesScreen(
             val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
             enableBtLauncher.launch(enableBtIntent)
         } else {
-            viewModel.connectDevice()
+            viewModel.fetchBondedDevices(ctx)
+            showDevicePicker = true
         }
     }
 
@@ -215,7 +220,8 @@ fun DevicesScreen(
                     isDrawing = isDrawing,
                     onStart = { viewModel.startDrawing() },
                     onStop = { viewModel.stopDrawing() },
-                    onConnect = { triggerConnection() }
+                    onConnect = { triggerConnection() },
+                    onHome = { viewModel.homeMachine() }
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -232,7 +238,7 @@ fun DevicesScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                AxisControlPanel()
+                AxisControlPanel(viewModel = viewModel)
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -241,6 +247,105 @@ fun DevicesScreen(
                 Spacer(modifier = Modifier.height(30.dp))
             }
         }
+    }
+
+    if (showDevicePicker) {
+        AlertDialog(
+            onDismissRequest = { showDevicePicker = false },
+            title = {
+                Text(
+                    text = "Connect to CNC Controller",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = DarkText
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "Select a paired Bluetooth device (HC-05, HC-06, etc.) to start drawing:",
+                        fontSize = 13.sp,
+                        color = GrayText,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    
+                    if (bondedDevices.isEmpty()) {
+                        Text(
+                            text = "No paired Bluetooth devices found.\n\nPlease pair your HC-05 module first in Android Settings > Bluetooth.",
+                            fontSize = 14.sp,
+                            color = Color(0xFFFF3B30),
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(vertical = 16.dp)
+                        )
+                    } else {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 250.dp)
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            bondedDevices.forEach { device ->
+                                val hasConnectPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                    ContextCompat.checkSelfPermission(context, android.Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+                                } else true
+                                
+                                val deviceName = if (hasConnectPermission) {
+                                    @Suppress("MissingPermission")
+                                    device.name ?: "Unknown Device"
+                                } else {
+                                    "Bluetooth Device"
+                                }
+                                
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            viewModel.connectDevice(device, context)
+                                            showDevicePicker = false
+                                        }
+                                        .padding(vertical = 12.dp, horizontal = 8.dp)
+                                        .background(
+                                            color = if (deviceName.contains("HC-05", ignoreCase = true) || deviceName.contains("HC-06", ignoreCase = true)) {
+                                                VioletPrimary.copy(alpha = 0.05f)
+                                            } else Color.Transparent,
+                                            shape = RoundedCornerShape(8.dp)
+                                        ),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Bluetooth,
+                                        contentDescription = null,
+                                        tint = if (deviceName.contains("HC-05", ignoreCase = true) || deviceName.contains("HC-06", ignoreCase = true)) {
+                                            Color(0xFF34C759)
+                                        } else VioletPrimary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text(text = deviceName, fontWeight = FontWeight.SemiBold, color = DarkText, fontSize = 14.sp)
+                                        Text(text = device.address, fontSize = 11.sp, color = GrayText)
+                                    }
+                                }
+                                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f), thickness = 0.5.dp)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showDevicePicker = false }) {
+                    Text("Cancel", color = VioletPrimary, fontWeight = FontWeight.Bold)
+                }
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(24.dp)
+        )
     }
 }
 
@@ -251,7 +356,8 @@ fun ConnectedDeviceCard(
     isDrawing: Boolean,
     onStart: () -> Unit,
     onStop: () -> Unit,
-    onConnect: () -> Unit
+    onConnect: () -> Unit,
+    onHome: () -> Unit
 ) {
     GlassCard(
         modifier = Modifier.fillMaxWidth()
@@ -302,7 +408,7 @@ fun ConnectedDeviceCard(
                 DeviceActionItem(Icons.Default.PlayArrow, if(isDrawing) "Drawing" else "Start", Color(0xFF34C759), onClick = onStart, modifier = Modifier.weight(1f))
                 DeviceActionItem(Icons.Default.Pause, "Pause", Color(0xFFFF9F0A), onClick = onStop, modifier = Modifier.weight(1f))
                 DeviceActionItem(Icons.Default.Stop, "E-Stop", Color(0xFFFF3B30), onClick = onStop, modifier = Modifier.weight(1f))
-                DeviceActionItem(Icons.Default.Home, "Home Pos", VioletPrimary, onClick = {}, modifier = Modifier.weight(1f))
+                DeviceActionItem(Icons.Default.Home, "Home Pos", VioletPrimary, onClick = onHome, modifier = Modifier.weight(1f))
             }
         }
     }
@@ -366,7 +472,7 @@ fun TelemetryCard(title: String, value: String, unit: String, modifier: Modifier
 }
 
 @Composable
-fun AxisControlPanel() {
+fun AxisControlPanel(viewModel: KolamViewModel) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(text = "Manual Jog Controls", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DarkText, modifier = Modifier.padding(start = 4.dp))
         Spacer(modifier = Modifier.height(12.dp))
@@ -377,7 +483,9 @@ fun AxisControlPanel() {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Y+
-                JogButton(icon = Icons.Default.KeyboardArrowUp, label = "Y+")
+                JogButton(icon = Icons.Default.KeyboardArrowUp, label = "Y+") {
+                    viewModel.jog("Y", 10f)
+                }
                 
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
@@ -385,7 +493,9 @@ fun AxisControlPanel() {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // X-
-                    JogButton(icon = Icons.Default.KeyboardArrowLeft, label = "X-")
+                    JogButton(icon = Icons.Default.KeyboardArrowLeft, label = "X-") {
+                        viewModel.jog("X", -10f)
+                    }
                     
                     Spacer(modifier = Modifier.width(32.dp))
                     
@@ -394,7 +504,7 @@ fun AxisControlPanel() {
                             .size(60.dp)
                             .background(Brush.radialGradient(listOf(Color.White, Color.White.copy(alpha = 0.5f))), CircleShape)
                             .border(2.dp, VioletPrimary.copy(alpha = 0.3f), CircleShape)
-                            .clickable { },
+                            .clickable { viewModel.resetCoordinates() },
                         contentAlignment = Alignment.Center
                     ) {
                         Text("Reset", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = VioletPrimary)
@@ -403,24 +513,28 @@ fun AxisControlPanel() {
                     Spacer(modifier = Modifier.width(32.dp))
                     
                     // X+
-                    JogButton(icon = Icons.Default.KeyboardArrowRight, label = "X+")
+                    JogButton(icon = Icons.Default.KeyboardArrowRight, label = "X+") {
+                        viewModel.jog("X", 10f)
+                    }
                 }
                 
                 // Y-
-                JogButton(icon = Icons.Default.KeyboardArrowDown, label = "Y-")
+                JogButton(icon = Icons.Default.KeyboardArrowDown, label = "Y-") {
+                    viewModel.jog("Y", -10f)
+                }
             }
         }
     }
 }
 
 @Composable
-fun JogButton(icon: ImageVector, label: String) {
+fun JogButton(icon: ImageVector, label: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .size(70.dp)
             .background(Color.White.copy(alpha = 0.8f), RoundedCornerShape(20.dp))
             .border(1.dp, VioletPrimary.copy(alpha = 0.1f), RoundedCornerShape(20.dp))
-            .clickable { },
+            .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
