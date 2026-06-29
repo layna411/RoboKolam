@@ -29,15 +29,26 @@ import java.io.OutputStream
 import java.util.UUID
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import com.simats.kolam.notifications.NotificationHelper
+import com.simats.kolam.file.FileHelper
 
 class KolamViewModel : ViewModel() {
     private val gson = Gson()
     private var sharedPrefs: android.content.SharedPreferences? = null
+    private var notificationHelper: NotificationHelper? = null
 
     fun initPrefs(context: Context) {
+        val appContext = context.applicationContext
         sharedPrefs = context.getSharedPreferences("kolam_prefs", Context.MODE_PRIVATE)
+        notificationHelper = NotificationHelper(appContext)
+        notificationHelper?.createNotificationChannel()
         loadUser()
         loadSettings()
+    }
+
+    private fun showCompletionNotification() {
+        if (!_notificationsEnabled.value) return
+        notificationHelper?.showCompletionNotification()
     }
 
     private fun saveUser(user: User) {
@@ -120,6 +131,9 @@ class KolamViewModel : ViewModel() {
     private val _notificationsEnabled = MutableStateFlow(true)
     val notificationsEnabled: StateFlow<Boolean> = _notificationsEnabled.asStateFlow()
 
+    private val _hasUnreadNotifications = MutableStateFlow(false)
+    val hasUnreadNotifications: StateFlow<Boolean> = _hasUnreadNotifications.asStateFlow()
+
     private val _unitsPreference = MutableStateFlow("mm")
     val unitsPreference: StateFlow<String> = _unitsPreference.asStateFlow()
 
@@ -137,6 +151,10 @@ class KolamViewModel : ViewModel() {
         _currentLineIndex.value = -1
     }
     
+    fun markNotificationsAsRead() {
+        _hasUnreadNotifications.value = false
+    }
+
     fun logout() {
         _currentUser.value = null
         _authState.value = null
@@ -237,10 +255,7 @@ class KolamViewModel : ViewModel() {
     private fun uploadImage(uri: Uri, context: Context) {
         viewModelScope.launch {
             try {
-                val inputStream = context.contentResolver.openInputStream(uri)
-                val tempFile = File.createTempFile("upload", ".jpg", context.cacheDir)
-                val outputStream = FileOutputStream(tempFile)
-                inputStream?.copyTo(outputStream)
+                val tempFile = FileHelper.uriToFile(context, uri) ?: return@launch
                 
                 val reqFile = tempFile.asRequestBody("image/*".toMediaTypeOrNull())
                 val body = MultipartBody.Part.createFormData("image", tempFile.name, reqFile)
@@ -609,6 +624,8 @@ class KolamViewModel : ViewModel() {
             viewModelScope.launch {
                 if (_isDrawing.value && sentCount >= totalSent) {
                     saveCompletedDrawing(durationSeconds)
+                    showCompletionNotification()
+                    _hasUnreadNotifications.value = true
                 }
                 _isDrawing.value = false
                 _activeColor.value = "None"
@@ -647,6 +664,8 @@ class KolamViewModel : ViewModel() {
             
             val durationSeconds = ((System.currentTimeMillis() - startTime) / 1000).toInt()
             saveCompletedDrawing(durationSeconds)
+            showCompletionNotification()
+            _hasUnreadNotifications.value = true
             
             _isDrawing.value = false
             _activeColor.value = "None"

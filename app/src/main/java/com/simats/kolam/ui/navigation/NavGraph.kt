@@ -20,6 +20,7 @@ sealed class Screen(val route: String) {
     object Designs : Screen("designs")
     object Devices : Screen("devices")
     object Settings : Screen("settings")
+    object Notifications : Screen("notifications")
 }
 
 @Composable
@@ -71,7 +72,14 @@ fun AppNavGraph(
                 onNavigateToProcessing = { navController.navigate(Screen.ImageToGCode.route) },
                 onNavigateToDesigns = { navController.navigate(Screen.Designs.route) },
                 onNavigateToDevices = { navController.navigate(Screen.Devices.route) },
-                onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
+                onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
+                onNavigateToNotifications = { navController.navigate(Screen.Notifications.route) }
+            )
+        }
+        composable(Screen.Notifications.route) {
+            NotificationsScreen(
+                viewModel = sharedViewModel,
+                onBackClick = { navController.popBackStack() }
             )
         }
         composable(Screen.Designs.route) {

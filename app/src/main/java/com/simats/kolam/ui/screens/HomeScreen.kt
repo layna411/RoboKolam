@@ -38,14 +38,16 @@ fun HomeScreen(
     onNavigateToProcessing: () -> Unit,
     onNavigateToDesigns: () -> Unit,
     onNavigateToDevices: () -> Unit,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onNavigateToNotifications: () -> Unit
 ) {
     val isConnected by viewModel.isConnected.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val userImages by viewModel.userImages.collectAsState()
+    val hasUnread by viewModel.hasUnreadNotifications.collectAsState()
     
     Scaffold(
-        topBar = { HomeTopBar() },
+        topBar = { HomeTopBar(hasUnread, onNavigateToNotifications) },
         bottomBar = { HomeBottomNavigation(onNavigateToDesigns, onNavigateToDevices, onNavigateToSettings) },
         containerColor = Color.Transparent
     ) { paddingValues ->
@@ -129,18 +131,29 @@ fun HomeScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeTopBar() {
+fun HomeTopBar(hasUnread: Boolean, onNotificationsClick: () -> Unit) {
     CenterAlignedTopAppBar(
         title = { Text(text = "RangoliBot", style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = DarkText)) },
         actions = {
             IconButton(
-                onClick = { },
+                onClick = onNotificationsClick,
                 modifier = Modifier
                     .padding(end = 8.dp)
                     .background(Color.White.copy(alpha = 0.6f), CircleShape)
                     .size(40.dp)
             ) {
-                Icon(Icons.Outlined.Notifications, contentDescription = "Notifications", tint = DarkText)
+                BadgedBox(
+                    badge = {
+                        if (hasUnread) {
+                            Badge(
+                                containerColor = Color.Red,
+                                modifier = Modifier.offset(x = (-4).dp, y = 4.dp)
+                            )
+                        }
+                    }
+                ) {
+                    Icon(Icons.Outlined.Notifications, contentDescription = "Notifications", tint = DarkText)
+                }
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
