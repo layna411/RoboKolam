@@ -126,6 +126,16 @@ class KolamViewModel : ViewModel() {
     fun resetAuth() {
         _authState.value = null
     }
+
+    fun resetDesignFlow() {
+        _selectedImageUri.value = null
+        uploadedImageId = null
+        _generatedGCode.value = ""
+        _isProcessingComplete.value = false
+        _processingProgress.value = 0f
+        _toolpathLines.value = emptyList()
+        _currentLineIndex.value = -1
+    }
     
     fun logout() {
         _currentUser.value = null

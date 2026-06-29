@@ -80,7 +80,10 @@ fun HomeScreen(
             ) {
                 HomeHeader(username = currentUser?.username ?: "Creator")
                 Spacer(modifier = Modifier.height(32.dp))
-                CreateNewDesignCard()
+                CreateNewDesignCard(onClick = {
+                    viewModel.resetDesignFlow()
+                    onNavigateToUpload()
+                })
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -91,7 +94,10 @@ fun HomeScreen(
                         iconBg = VioletPrimary.copy(alpha = 0.1f),
                         iconTint = VioletPrimary,
                         modifier = Modifier.weight(1f),
-                        onClick = onNavigateToUpload
+                        onClick = {
+                            viewModel.resetDesignFlow()
+                            onNavigateToUpload()
+                        }
                     )
                     SecondaryActionCard(
                         title = "My Designs",
@@ -151,8 +157,8 @@ fun HomeHeader(username: String) {
 }
 
 @Composable
-fun CreateNewDesignCard() {
-    GlassCard(modifier = Modifier.fillMaxWidth()) {
+fun CreateNewDesignCard(onClick: () -> Unit) {
+    GlassCard(modifier = Modifier.fillMaxWidth(), onClick = onClick) {
         Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
@@ -175,7 +181,7 @@ fun CreateNewDesignCard() {
 
 @Composable
 fun SecondaryActionCard(title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, iconBg: Color, iconTint: Color, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    GlassCard(modifier = modifier.clickable { onClick() }) {
+    GlassCard(modifier = modifier, onClick = onClick) {
         Column(modifier = Modifier.padding(16.dp)) {
             Box(modifier = Modifier.size(44.dp).background(iconBg, RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
                 Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(24.dp))
@@ -259,7 +265,7 @@ fun DesignItem(img: ImageRecord, onClick: () -> Unit) {
 
 @Composable
 fun DeviceConnectivityCard(isConnected: Boolean = false, onClick: () -> Unit = {}) {
-    GlassCard(modifier = Modifier.fillMaxWidth().clickable { onClick() }) {
+    GlassCard(modifier = Modifier.fillMaxWidth(), onClick = onClick) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(50.dp).background(Color.White, RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
                 Icon(Icons.Default.Bluetooth, contentDescription = null, tint = VioletPrimary)

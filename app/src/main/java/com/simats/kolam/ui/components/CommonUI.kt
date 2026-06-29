@@ -2,6 +2,7 @@ package com.simats.kolam.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -24,11 +25,13 @@ import com.simats.kolam.ui.theme.GlassBorder
 @Composable
 fun GlassCard(
     modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit
 ) {
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(24.dp))
+            .let { if (onClick != null) it.clickable { onClick() } else it }
             .background(GlassWhite)
             .border(1.dp, GlassBorder, RoundedCornerShape(24.dp))
     ) {

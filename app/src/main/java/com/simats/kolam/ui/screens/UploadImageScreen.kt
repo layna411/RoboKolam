@@ -261,8 +261,8 @@ fun RecentImageItem(img: ImageRecord, onClick: () -> Unit) {
     
     GlassCard(
         modifier = Modifier
-            .size(110.dp)
-            .clickable { onClick() }
+            .size(110.dp),
+        onClick = onClick
     ) {
         Box(modifier = Modifier.fillMaxSize().padding(12.dp)) {
             AsyncImage(
