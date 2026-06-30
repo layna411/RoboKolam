@@ -28,7 +28,6 @@ import com.simats.kolam.ui.components.GlassCard
 import com.simats.kolam.ui.theme.*
 import com.simats.kolam.viewmodel.KolamViewModel
 import com.simats.kolam.api.RetrofitClient
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotificationsScreen(
